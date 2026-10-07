@@ -1,0 +1,2785 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>동작 코칭 분석기 PRO</title>
+<style>
+  :root{--bg:#0f1318;--panel:#1a2029;--line:#2c3643;--text:#e8edf3;--sub:#8b98a8;--accent:#3ddc97;}
+  [hidden]{display:none!important}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;padding:10px;padding-bottom:40px}
+  h1{font-size:17px;margin:2px 0 8px}
+  h1 small{font-size:11px;background:linear-gradient(90deg,#ffd23f,#ff7b54);color:#2a1300;padding:2px 7px;border-radius:8px;margin-left:6px;vertical-align:middle}
+  .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}
+  button,select,label.btn{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:14px;cursor:pointer}
+  button.on{background:var(--accent);color:#06251a;border-color:var(--accent);font-weight:700}
+  #stageWrap{display:flex;justify-content:center;background:#000;border-radius:12px;overflow:hidden;min-height:180px}
+  #stage{position:relative;overflow:hidden}
+  #stage video,#stage canvas{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:50% 50%}
+  #cv{touch-action:none;cursor:crosshair}
+  #empty{padding:70px 16px;color:var(--sub);text-align:center;font-size:14px}
+  input[type=range]{width:100%}
+  .row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sub)}
+  .chk{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text)}
+  input[type=color]{width:38px;height:36px;border:1px solid var(--line);border-radius:8px;background:none;padding:2px}
+  #hint{font-size:13px;color:var(--accent);min-height:18px;margin:4px 2px}
+  #status,#expStatus,.sub{font-size:12px;color:var(--sub)}
+  #badge{position:absolute;right:8px;top:8px;background:rgba(0,0,0,.7);color:#ffd23f;font-weight:700;font-size:15px;padding:6px 10px;border-radius:10px;pointer-events:none}
+  .wsl{position:relative;flex:1;padding-bottom:9px}
+  #marks i{position:absolute;bottom:0;width:6px;height:9px;margin-left:-3px;background:#ffd23f;border-radius:2px}
+  .chip{display:inline-block;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:5px 9px;font-size:12px;cursor:pointer}
+  .chip b{margin-left:4px;color:#ff7b7b;display:inline-block;padding:2px 6px;margin-right:-6px;font-size:14px}
+  .chip .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid rgba(255,255,255,.5)}
+  .chip.g{background:#2a2410;border-color:#5a4a1a;color:#ffd23f;font-weight:700}
+  .grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;padding:6px 0;border-top:1px solid var(--line)}
+  input[type=number]{width:64px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px;font-size:14px}
+  body.busy #ctrls,body.busy #cv{pointer-events:none;opacity:.55}
+  .dl{display:inline-block;background:var(--accent);color:#06251a;font-weight:700;border-radius:10px;padding:10px 14px;text-decoration:none}
+  /* 사람 선택 */
+  #pickBox{position:fixed;inset:0;z-index:60;background:rgba(8,10,14,.97);display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px;padding-top:max(10px,env(safe-area-inset-top))}
+  #pickTxt{font-size:14px;text-align:center;line-height:1.5}
+  #pickTxt b{color:var(--accent)}
+  #pickWrap{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+  #pickCv{border-radius:10px;touch-action:manipulation;cursor:pointer;background:#000}
+  #pickBtns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding-bottom:max(6px,env(safe-area-inset-bottom))}
+  #pickBtns button:disabled{opacity:.4}
+  #pplChips{display:flex;gap:6px;flex-wrap:wrap}
+  /* PRO 분석 */
+  .sec{margin-top:14px;padding:10px 12px;border:1px solid #3a3320;border-radius:14px;background:linear-gradient(180deg,#1b1a14,#12161c)}
+  .secT{font-weight:800;font-size:15px;color:#ffd23f}
+  .secS{font-size:13px;font-weight:700;color:var(--accent);margin:12px 0 2px}
+  #sg{width:100%;height:34px;display:block;border-radius:6px;background:#0a0d11;margin:2px 0 4px;cursor:pointer}
+  #anaBox{position:absolute;inset:0;background:rgba(0,0,0,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:5;color:#fff;font-size:14px;text-align:center;padding:16px}
+  .pb{width:72%;height:8px;background:#333;border-radius:4px;overflow:hidden}
+  .pb i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#ffd23f);transition:width .15s}
+  #tv{position:fixed;left:-9999px;top:0;width:160px;height:90px;opacity:0;pointer-events:none}
+  .repTop{display:flex;gap:14px;align-items:center;margin-top:8px}
+  .big{font-size:48px;font-weight:900;line-height:1}
+  .big small{font-size:16px;margin-left:2px}
+  .jrow{display:flex;align-items:center;gap:8px;font-size:12px;margin:4px 0}
+  .jrow span{width:70px;flex:none}
+  .jrow em{width:34px;text-align:right;font-style:normal;color:var(--sub)}
+  .jbar{flex:1;height:8px;background:#26303c;border-radius:4px;overflow:hidden}
+  .jbar i{display:block;height:100%}
+  .fchip{display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:6px 0;font-size:13px;line-height:1.5;cursor:pointer}
+  .fchip .seq{color:var(--sub);font-size:12px}
+  #report ul{margin:4px 0 10px;padding-left:18px;font-size:13px;line-height:1.6}
+/* ===== PRO 다듬기 ===== */
+body{max-width:1000px;margin:0 auto;padding-top:0}
+header.app{display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:20;background:rgba(15,19,24,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);padding:calc(8px + env(safe-area-inset-top,0px)) 2px 8px;margin:0 -2px 6px;border-bottom:1px solid var(--line)}
+header.app h1{margin:0;flex:1}
+header.app button{padding:7px 10px;font-size:15px;line-height:1}
+button{transition:background .12s,border-color .12s}
+button:hover{border-color:#42526a}
+button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.cb{border-color:#3ec6ff;color:#bfeaff}
+button.co{border-color:#ff9f43;color:#ffd9b0}
+details.pan{border-top:1px solid var(--line);margin-top:10px;padding-top:2px}
+details.pan>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;padding:8px 2px;font-size:14px;font-weight:700;color:var(--accent);user-select:none}
+details.pan>summary::-webkit-details-marker{display:none}
+details.pan>summary::after{content:'▾';margin-left:auto;color:var(--sub);transition:transform .18s}
+details.pan:not([open])>summary::after{transform:rotate(-90deg)}
+.legend{margin:4px 0 6px}
+.angGrid{display:grid;grid-template-columns:auto auto auto;gap:6px 16px;align-items:center;justify-content:start;margin:6px 0}
+.angGrid .nm{font-size:13px;color:var(--text)}
+.lg{border-left:4px solid var(--c);background:var(--panel);border-radius:0 10px 10px 0;padding:7px 10px;margin:5px 0;font-size:12px;line-height:1.6;color:#cfd6df}
+.lg b{display:block;color:var(--c);font-size:13px;margin-bottom:1px}
+.lg u{text-decoration:none;color:#fff;font-weight:700}
+#grfG{display:none;width:100%;height:206px;border-radius:10px;background:#0a0d11;margin:6px 0;cursor:ew-resize;touch-action:pan-y}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 6px}
+.kpi{border:1px solid var(--line);border-top:3px solid var(--c);border-radius:10px;padding:6px 6px 7px;text-align:center;background:#12171e;cursor:pointer}
+.kpi small{display:block;color:var(--sub);font-size:11px}
+.kpi b{display:block;font-size:20px;margin:2px 0;color:var(--c)}
+.split{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:4px 0}
+.split i{display:block;height:100%}
+#marks i.lp{background:#3ec6ff;height:15px;width:3px;margin-left:-1.5px}
+#fno{min-width:34px;text-align:right}
+#toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);background:rgba(20,26,34,.96);border:1px solid var(--line);color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:60;max-width:88vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#help{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+#help .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;max-width:440px;width:100%;max-height:86vh;overflow:auto}
+#help h3{margin:0 0 8px;font-size:16px}
+#help table{width:100%;border-collapse:collapse;font-size:13px}
+#help td{padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+#help td:first-child{white-space:nowrap;width:1%;padding-right:12px}
+kbd{display:inline-block;min-width:22px;text-align:center;background:#0f1318;border:1px solid #3a4658;border-bottom-width:2px;border-radius:6px;padding:1px 6px;font:600 12px system-ui,sans-serif;color:#e8edf3}
+#stageWrap:fullscreen,#stageWrap:-webkit-full-screen{width:100vw;height:100vh;align-items:center;border-radius:0}
+body.drop::after{content:'🎞 영상을 여기에 놓으세요';position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(61,220,151,.16);border:3px dashed var(--accent);color:#fff;font-size:20px;font-weight:700;pointer-events:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>🥋 동작 코칭 분석기<small>PRO</small></h1>
+  <button id="fsBtn" title="영상 전체화면" aria-label="영상 전체화면">⛶</button>
+  <button id="helpBtn" title="단축키 (?)" aria-label="단축키 도움말">⌨</button>
+</header>
+
+<div class="bar">
+  <label class="btn">🎞 영상 불러오기<input id="file" type="file" accept="video/*" hidden></label>
+  <button id="poseBtn">🦴 관절 표시</button>
+  <button id="skelBtn">💀 해골 모형</button>
+  <button id="shot">📷 이미지 저장</button>
+  <span id="status"></span>
+</div>
+
+<div id="skOpt" class="row" hidden style="margin:2px 0 6px;flex-wrap:wrap">
+  <span>영상 어둡게</span><input id="skDim" type="range" min="0" max="95" value="55" style="width:120px">
+  <label class="chk"><input type="checkbox" id="skName"> 뼈 이름</label>
+  <label class="chk"><input type="checkbox" id="skRib" checked> 갈비뼈·척추</label>
+  <label class="chk"><input type="checkbox" id="skHand" checked> 손·발 뼈</label>
+</div>
+
+<div id="stageWrap">
+  <div id="empty">영상을 불러오거나, 이 화면에 끌어다 놓으세요.</div>
+  <div id="stage" hidden>
+    <video id="v" playsinline muted preload="auto"></video>
+    <canvas id="cv"></canvas>
+    <div id="badge" hidden></div>
+    <div id="anaBox" hidden>
+      <div style="font-size:26px">⚡</div>
+      <div id="anaTxt">분석 준비 중…</div>
+      <div class="pb"><i id="anaBar"></i></div>
+      <button id="anaCancel">✕ 분석 취소</button>
+    </div>
+  </div>
+</div>
+<video id="tv" playsinline muted preload="auto"></video>
+
+<div id="ctrls">
+<div class="row" style="margin-top:8px">
+  <span id="tcur">0.00</span>
+  <div class="wsl"><input id="seek" type="range" min="0" max="1000" value="0"><div id="marks"></div></div>
+  <span id="tdur">0.00</span><span id="fno" class="sub"></span>
+</div>
+<canvas id="sg" hidden></canvas>
+
+<div class="bar">
+  <button id="prev">◀ 1프레임</button>
+  <button id="play">▶ 재생</button>
+  <button id="next">1프레임 ▶</button>
+  <select id="rate">
+    <option value="0.1">0.1x</option><option value="0.25">0.25x</option>
+    <option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x</option>
+  </select>
+</div>
+
+<div class="bar">
+  <span class="sub">구간 반복</span>
+  <button id="loopA" title="I">A 시작</button><button id="loopB" title="O">B 끝</button>
+  <label class="chk"><input type="checkbox" id="loopOn"> 반복</label><button id="loopClr" title="구간 지우기">✕</button>
+</div>
+
+<details class="pan" open>
+<summary class="secS" style="margin:0">🎨 그리기 도구</summary>
+<div class="bar" id="tools">
+  <button data-tool="pen">✏️ 펜</button>
+  <button data-tool="line">╱ 직선</button>
+  <button data-tool="dash">┄ 점선</button>
+  <button data-tool="arrow">➜ 화살표</button>
+  <button data-tool="circle">◯ 원</button>
+  <button data-tool="angle">📐 각도기</button>
+  <button data-tool="text">T 글자</button>
+  <button data-tool="erase">🧽 지우개</button>
+  <button data-tool="joint">🦴 관절 수정</button>
+</div>
+
+<div class="bar">
+  <input id="color" type="color" value="#ffd23f">
+  <select id="width"><option value="2">가늘게</option><option value="4" selected>보통</option><option value="7">굵게</option></select>
+  <button id="undo">↩ 되돌리기</button>
+  <button id="clearFrame">이 장면 지우기</button>
+  <button id="clearAll">전체 지우기</button>
+</div>
+
+<div class="bar">
+  <label class="chk"><input type="checkbox" id="autoAngle"> 📐 관절 각도 표시</label>
+  <label class="chk"><input type="checkbox" id="snap" checked> 관절에 달라붙기</label>
+  <label class="chk"><input type="checkbox" id="always"> 그림을 모든 장면에 표시</label>
+</div>
+<div id="angPanel" hidden>
+  <div class="sub">보고 싶은 관절만 체크하세요. 체크한 각도만 영상에 나와요. (관절 인식이 켜져 있어야 보여요)<br>기본은 AI가 추정한 <b>3D 좌표</b>로 계산해서 정면에서 찍어도 접힌 관절이 펴진 것처럼 나오지 않아요. 숫자 뒤 <b>?</b> = 관절이 가려져 불확실, <b>*</b> = 3D 정보가 없어 화면 기준으로 계산한 값이에요.</div>
+  <div class="bar"><select id="angMode"><option value="3d">각도 계산: 3D (권장)</option><option value="2d">각도 계산: 화면 기준 2D</option></select></div>
+  <div class="angGrid" id="angGrid"></div>
+  <div class="bar">
+    <button id="angAll">전체 선택</button><button id="angNone">전체 해제</button><button id="angArms">팔만</button><button id="angLegs">다리만</button>
+    <label class="chk"><input type="checkbox" id="angName" checked> 이름 표시</label>
+  </div>
+</div>
+<div class="bar">
+  <label class="chk">⏸ 프리즈 시간 <input id="hold" type="number" min="0.5" max="120" step="0.5" value="10"> 초</label>
+  <label class="chk"><input type="checkbox" id="autoFreeze" checked> 재생 중 자동 프리즈</label>
+</div>
+</details>
+<div class="bar" id="fzList"></div>
+
+<!-- ===== PRO 분석 ===== -->
+<div class="sec">
+  <div class="secT">🔬 PRO 분석</div>
+  <div class="bar">
+    <button id="anaBtn">⚡ 동작 정밀 분석</button>
+    <label class="chk">원생 키 <input id="hcm" type="number" min="80" max="210" value="140"> cm</label>
+  </div>
+  <div class="bar" id="pplBar" hidden>
+    <span style="font-size:13px;font-weight:700">👥 분석 대상</span>
+    <span id="pplChips"></span>
+    <button id="pplRe">🔁 사람 다시 선택</button>
+    <div class="sub" id="pplHint" style="width:100%"></div>
+  </div>
+  <div class="bar">
+    <label class="chk"><input type="checkbox" id="stab" checked> 🎥 화면 흔들림 보정</label>
+    <select id="qual">
+      <option value="auto" selected>정밀도: 최고 (기본)</option><option value="lite">빠름</option>
+      <option value="full">정밀</option><option value="heavy">최고 정밀 (느림)</option>
+    </select>
+  </div>
+  <div class="sub">영상 전체를 한 번 훑어 관절을 기록해요. 튀는 관절·좌우 뒤바뀜을 바로잡고, 손떨림도 같이 잡아줘요.</div>
+  <div class="sub" id="stabInfo" style="color:var(--accent)"></div>
+
+  <details class="pan" open>
+    <summary class="secS" style="margin:0">✨ 발끝·손끝 궤적 추적</summary>
+    <div class="bar" id="trSel">
+      <button data-k="rf">🦶 오른발</button>
+      <button data-k="lf">🦶 왼발</button>
+      <button data-k="rh">✊ 오른손</button>
+      <button data-k="lh">✊ 왼손</button>
+      <select id="trailLen">
+        <option value="0.5">잔상 0.5초</option><option value="1" selected>잔상 1초</option>
+        <option value="2">잔상 2초</option><option value="99">전체 궤적</option>
+      </select>
+    </div>
+    <div class="bar" id="trStats"></div>
+  </details>
+
+  <details class="pan" open>
+    <summary class="secS" style="margin:0">💥 힘의 흐름 (실시간)</summary>
+    <div class="bar">
+      <label class="chk"><input type="checkbox" id="forceOn"> 힘 방향·전달 표시</label>
+      <select id="forceSel">
+        <option value="auto">자동 (움직이는 부위)</option>
+        <option value="rf">오른발 차기</option><option value="lf">왼발 차기</option>
+        <option value="rh">오른손 지르기 (무릎→손목)</option><option value="lh">왼손 지르기 (무릎→손목)</option>
+      </select>
+    </div>
+    <div class="sub">화살표 = 그 순간 관절에 걸리는 힘의 방향, 빛나는 선 = 힘(속도)이 몸통에서 끝으로 흘러가는 모습. 영상 움직임으로 계산한 추정치예요.</div>
+    <div id="forceRep"></div>
+  </details>
+
+  <details class="pan" open>
+    <summary class="secS" style="margin:0">🦶 지면반력·무게중심 (추정)</summary>
+    <div class="bar">
+      <label class="chk"><input type="checkbox" id="grfOn"> 지면반력·무게중심 표시</label>
+      <label class="chk"><input type="checkbox" id="shiftOn"> 중심이동 표시</label>
+      <select id="grfDir">
+        <option value="auto">보는 방향: 자동</option><option value="r">→ 오른쪽을 봐요</option><option value="l">← 왼쪽을 봐요</option>
+      </select>
+    </div>
+    <div class="legend">
+      <div class="lg" style="--c:#ff9f43"><b>🟧 주황 · 밀어내는 힘 (추진)</b>뒷발이 땅을 밀어 몸을 보내는 힘이에요. 걸을 때도, 태권도 이동도 대부분 <u>뒷발은 미는 힘</u>이에요. 발차기를 차는 순간에는 축발이 발가락 → 뒤꿈치 쪽으로 밀어내고, 발을 앞에서 뒤로 가져올 때도 뒷발로 밀어내며 앞발이 끌려와요.</div>
+      <div class="lg" style="--c:#3ec6ff"><b>🟦 파랑 · 브레이크 (제동)</b>뒷발이 나가 앞발이 되는 순간, 발가락부터 밟고 뒤꿈치가 닿으며 나아가는 힘을 막아요. 지르기·차기·막기를 할 때 관성처럼 버텨 주는 힘이고, <u>앞발은 멈추는 힘</u>이에요.</div>
+      <div class="lg" style="--c:#7be07b"><b>🟩 초록 · 받치는 힘</b>앞뒤로 밀거나 막지 않고, 아래에서 몸을 받치는 힘이에요.</div>
+    </div>
+    <div class="sub">앞발·뒷발은 몸이 가는 방향 기준이에요. 화살표 길이 = 체중의 몇 배, ⊕ = 무게중심. 몸 전체의 움직임에서 계산한 추정치라서 옆에서 찍은 영상일 때 가장 정확해요.</div>
+    <div class="bar">
+      <label class="chk">화살표 크기 <input id="grfScale" type="range" min="50" max="200" value="100" style="width:110px"></label>
+      <label class="chk"><input type="checkbox" id="grfLabel" checked> 글자</label>
+      <label class="chk"><input type="checkbox" id="grfPhase" checked> 발 접지(발가락→뒤꿈치)</label>
+      <label class="chk"><input type="checkbox" id="grfLeg" checked> 색 범례</label>
+      <label class="chk"><input type="checkbox" id="wtOn" checked> ⚖ 체중 배분 막대 (뒷발:앞발)</label>
+    </div>
+    <canvas id="grfG"></canvas>
+    <div class="bar" id="grfTools" hidden>
+      <button id="evPrev">◀ 앞발 착지</button><button id="evNext">앞발 착지 ▶</button>
+      <button id="evBrake" class="cb">🟦 제동 최대</button><button id="evPush" class="co">🟧 밀어냄 최대</button>
+      <button id="grfCsv">⬇ CSV</button><button id="grfPng">🖼 그래프 저장</button>
+    </div>
+    <div id="grfRep"></div>
+  </details>
+
+  <details class="pan">
+    <summary class="secS" style="margin:0">🧑‍🏫 코칭 진단 (약한 이유·연습법)</summary>
+    <div class="bar"><button id="coachBtn">🔍 약한 점 진단하기</button></div>
+    <div class="sub">영상에서 센 동작(지르기·막기·차기)을 찾아 힘의 전달 순서, 땅을 미는 힘, 서기 자세를 보고 왜 약한지와 연습법을 알려줘요. 영상 한 대로 계산한 추정이라 지도자 선생님의 눈과 함께 참고해 주세요.</div>
+    <div id="coachRep"></div>
+  </details>
+
+  <details class="pan">
+    <summary class="secS" style="margin:0">👨‍🏫 사범 시범과 비교</summary>
+    <div class="bar">
+      <label class="btn">🎞 사범 영상 불러오기<input id="tfile" type="file" accept="video/*" hidden></label>
+      <button id="cmpBtn">🔍 비교 분석</button>
+    </div>
+    <div class="sub" id="tName">사범님 시범 영상을 불러오면 박자가 달라도 동작을 자동으로 맞춰 비교해요.</div>
+    <div class="bar">
+      <label class="chk"><input type="checkbox" id="ghost" checked> 사범 자세 겹쳐보기</label>
+      <label class="chk"><input type="checkbox" id="pip" checked> 사범 영상 작게</label>
+      <label class="chk"><input type="checkbox" id="scoreOn" checked> 일치도 표시</label>
+    </div>
+    <div id="report" hidden></div>
+  </details>
+</div>
+</div>
+
+<div id="hint"></div>
+<div class="bar">
+  <select id="expRate"><option value="1">저장 속도 1x</option><option value="0.5">저장 속도 0.5x</option><option value="0.25">저장 속도 0.25x</option></select>
+  <button id="save">💾 피드백 완료 영상 저장</button>
+  <button id="expCancel" hidden>✕ 취소</button>
+</div>
+<div id="expStatus"></div>
+<div id="result" hidden>
+  <video id="resV" controls playsinline style="width:100%;max-height:60vh;background:#000;border-radius:12px"></video>
+  <p><a id="resA" class="dl">⬇ 영상 다운로드</a></p>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="pickBox" hidden role="dialog" aria-label="분석할 사람 선택">
+  <div id="pickTxt"></div>
+  <div id="pickWrap"><canvas id="pickCv"></canvas></div>
+  <div id="pickBtns">
+    <button id="pickAll">👥 전체 선택</button>
+    <button id="pickGo" class="on">✔ 분석 시작</button>
+    <button id="pickCancel">✕ 취소</button>
+  </div>
+</div>
+<div id="help" hidden role="dialog" aria-label="단축키">
+  <div class="card">
+    <h3>⌨ 단축키</h3>
+    <table>
+      <tr><td><kbd>Space</kbd></td><td>재생 / 일시정지 (프리즈 중에는 계속 재생)</td></tr>
+      <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>1프레임 이동 (<kbd>Shift</kbd> 누르면 10프레임)</td></tr>
+      <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>재생 속도 바꾸기</td></tr>
+      <tr><td><kbd>Home</kbd></td><td>처음으로</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>이전 / 다음 앞발 착지로 이동 (지면반력 켠 뒤)</td></tr>
+      <tr><td><kbd>I</kbd> <kbd>O</kbd> <kbd>L</kbd></td><td>구간 시작(A) · 끝(B) 정하기 · 반복 켜기/끄기</td></tr>
+      <tr><td><kbd>G</kbd></td><td>지면반력·무게중심 표시</td></tr>
+      <tr><td><kbd>F</kbd></td><td>힘의 흐름 표시</td></tr>
+      <tr><td><kbd>C</kbd></td><td>중심이동 표시</td></tr>
+      <tr><td><kbd>P</kbd></td><td>이미지 저장</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>그림 되돌리기</td></tr>
+      <tr><td><kbd>?</kbd></td><td>이 도움말 열기 (<kbd>Esc</kbd> 로 닫기)</td></tr>
+    </table>
+    <div class="sub" style="margin-top:8px">그래프를 누른 채 끌면 영상이 따라와요. 영상 파일은 화면 어디로든 끌어다 놓아도 열려요. 설정은 이 기기에 자동 저장돼요.</div>
+    <p style="margin:10px 0 0"><button id="helpClose">닫기</button></p>
+  </div>
+</div>
+
+<script type="module">
+/* MediaPipe 버전: 앞에서부터 시도하고, 안 불러와지면 다음(검증된 이전 버전)으로 자동 전환해요 */
+const MP_VERS=["0.10.35","0.10.14"];
+let PoseLandmarker, FilesetResolver, MP_VER=null;
+for(const v of MP_VERS){
+  try{ ({PoseLandmarker,FilesetResolver}=await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${v}/vision_bundle.mjs`)); MP_VER=v; break; }
+  catch(e){ console.warn('MediaPipe '+v+' 불러오기 실패, 다음 버전 시도',e); }
+}
+console.log('MediaPipe tasks-vision '+MP_VER);
+
+const $ = id => document.getElementById(id);
+const video=$('v'), cv=$('cv'), tv=$('tv'); let ctx=cv.getContext('2d');
+const stage=$('stage'), wrap=$('stageWrap');
+const FPS=30; let AFPS=20; // 짧은 영상은 30장/초로 더 촘촘하게 분석
+const MP_WASM=`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`;
+const MB="https://storage.googleapis.com/mediapipe-models/pose_landmarker/";
+const MODELS={lite:MB+"pose_landmarker_lite/float16/1/pose_landmarker_lite.task",full:MB+"pose_landmarker_full/float16/1/pose_landmarker_full.task",heavy:MB+"pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"};
+const QN={lite:'빠름',full:'정밀',heavy:'최고 정밀'};
+
+let anns=[], tool='pen', draft=null, angPts=[];
+let annId=0, selId=null, selTimer=null, erasing=false;
+let jdrag=null, lastDetT=null;
+let frameT=null; // 화면에 실제로 표시된 프레임의 시간
+const vtime=()=>(!video.paused&&frameT!=null)?frameT:video.currentTime;
+let skelOn=false;
+let poseOn=false, landmarker=null, pose=null, lastTs=0, loading=false;
+let fz=null, lastT=0, skipZero=false;
+/* PRO 상태 */
+let track=null, tTrack=null, cmp=null, jstats={}, mpp=null, floorY=null;
+let anaRng=null, autoBusy=false, noAuto=false, gb=null, coachRes=[], cm=null, clipTimer=null;
+let analyzing=false, anaCancel=false, fileset=null, lastSG=-1;
+const trailSel=new Set();
+let trackRaw=null, trackClean=null, corr=null, stabZoom=1;
+let loopA=null, loopB=null, fileName='';
+/* 여러 사람: 고른 사람들 */
+const MAXP=6, PCOL=['#3ddc97','#ffd23f','#7dd3fc','#ff7b9c','#c4b5fd','#ff9f43'];
+let ppl=null, PS={}, liveTrk=null; // ppl={ref:{t,list},sel:[번호],active}, PS[번호]={raw,clean,view}
+
+const HINTS={
+  pen:'화면 위를 손가락으로 그리세요.',
+  line:'시작점에서 끝점까지 드래그하세요.',
+  dash:'시작점에서 끝점까지 드래그하세요. (점선)',
+  arrow:'시작점에서 화살표 끝까지 드래그하세요.',
+  circle:'원을 그릴 영역을 대각선으로 드래그하세요.',
+  angle:'3곳을 차례로 누르세요: ①한쪽 끝 ②꼭짓점(각도가 재질 곳) ③다른 쪽 끝',
+  text:'글자를 넣을 곳을 누르세요.',
+  erase:'🧽 지울 그림을 누르거나 손가락으로 문지르세요. (실수하면 ↩ 되돌리기)',
+  joint:'🦴 영상을 멈추고, 잘못된 관절 점을 끌어서 맞는 자리로 옮기세요. 앞뒤 장면도 자동으로 따라 고쳐져요. (정밀 분석 후 사용)'
+};
+
+/* ---------- 레이아웃 ---------- */
+function layout(){
+  if(!video.videoWidth) return;
+  const ar=video.videoWidth/video.videoHeight;
+  const maxW=Math.min(wrap.clientWidth||window.innerWidth-20, window.innerWidth-20);
+  const maxH=window.innerHeight*((document.fullscreenElement||document.webkitFullscreenElement)?0.96:0.55);
+  let w=maxW,h=w/ar;
+  if(h>maxH){h=maxH;w=h*ar}
+  stage.style.width=w+'px'; stage.style.height=h+'px';
+  cv.width=video.videoWidth; cv.height=video.videoHeight;
+  render(); drawSG();
+}
+window.addEventListener('resize',layout);
+
+function openVideoFile(f){
+  if(!f) return;
+  video.src=URL.createObjectURL(f); fileName=f.name; loopA=loopB=null; $('loopOn').checked=false; document.title=f.name+' · 동작 코칭 분석기 PRO';
+  anns=[]; pose=null; fz=null; anaRng=null; noAuto=false; gb=null; track=null; if($('coachRep')) $('coachRep').innerHTML=''; cm=null; coachRes=[]; jstats={}; cmp=null; kin=null; trackRaw=null; trackClean=null; corr=null; stabZoom=1; $('stabInfo').textContent=''; ppl=null; PS={}; liveTrk=null; refreshPplBar(); refreshForceRep();
+  refreshPoints(); refreshTrStats(); showReport();
+}
+$('file').addEventListener('change',e=>{ openVideoFile(e.target.files[0]); e.target.value=''; });
+video.addEventListener('loadedmetadata',()=>{
+  $('empty').hidden=true; stage.hidden=false;
+  wrap.style.minHeight='0';
+  $('tdur').textContent=video.duration.toFixed(2);
+  layout(); setTool('pen'); refreshPoints();
+});
+video.addEventListener('seeked',()=>{if(analyzing)return;if(!fz)lastT=video.currentTime;detect();render()});
+video.addEventListener('pause',()=>{frameT=null;if(analyzing)return;detect();render()});
+video.addEventListener('play',()=>{lastT=(video.currentTime<0.02&&!skipZero)?-1:video.currentTime;skipZero=false});
+tv.addEventListener('seeked',()=>{if(!analyzing&&video.paused)render()});
+
+/* ---------- 재생 컨트롤 ---------- */
+$('play').onclick=()=>{ if(!video.src) return; if(fz){resume();return} video.paused?video.play():video.pause(); };
+$('prev').onclick=()=>step(-1);
+$('next').onclick=()=>step(1);
+function step(n){ if(!video.src) return; fz=null; video.pause(); video.currentTime=Math.max(0,Math.min(video.duration,video.currentTime+n/FPS)); }
+$('rate').onchange=e=>{ video.playbackRate=video.defaultPlaybackRate=parseFloat(e.target.value); };
+$('seek').oninput=e=>{ if(!video.duration) return; fz=null; video.pause(); video.currentTime=e.target.value/1000*video.duration; };
+
+/* ---------- 관절 인식 (MediaPipe) ---------- */
+async function makeLM(kind='lite',mode='VIDEO',np=1){
+  if(!fileset) fileset=await FilesetResolver.forVisionTasks(MP_WASM);
+  const opt=dg=>({baseOptions:{modelAssetPath:MODELS[kind],delegate:dg},runningMode:mode,numPoses:np,
+    minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5});
+  try{ return await PoseLandmarker.createFromOptions(fileset,opt('GPU')); }
+  catch(e){ return PoseLandmarker.createFromOptions(fileset,opt('CPU')); }
+}
+function qualKind(d){const v=$('qual').value; return v!=='auto'?v:'heavy';}
+async function initPose(){
+  if(landmarker||loading) return;
+  loading=true; $('status').textContent='최고 정밀 모델 불러오는 중… (처음 한 번 약 30MB)';
+  try{ landmarker=await makeLM('heavy','VIDEO',MAXP); $('status').textContent=''; }
+  catch(err){ $('status').textContent='모델 로딩 실패(인터넷 연결 확인)'; poseOn=false; $('poseBtn').classList.remove('on'); }
+  loading=false; detect(); render();
+}
+function autoExtend(t){ // 분석된 구간 밖으로 나가면 그 위치 기준으로 새 구간 자동 분석
+  autoBusy=true;
+  const a=Math.max(0,t-1), b=Math.min(video.duration,a+16);
+  busyRun(()=>analyzeStudent(0,1,{a,b})).finally(()=>{ if(anaCancel) noAuto=true; autoBusy=false; detect(); render(); });
+}
+function detect(){
+  if(track){ pose=poseAt(track,vtime()); if(pose||!poseOn) return;
+    if(anaRng&&!analyzing&&!autoBusy&&!noAuto){ const t=vtime(); if(t<anaRng.a||t>anaRng.b){ autoExtend(t); return; } } if(!landmarker){ initPose(); return; } }
+  if(!poseOn||!landmarker||video.readyState<2||analyzing) return;
+  if(pose&&lastDetT===vtime()) return; lastDetT=vtime();
+  const ts=Math.max(lastTs+1,performance.now()); lastTs=ts;
+  try{ const r=landmarker.detectForVideo(video,ts), k=pickLive(r); pose=liveFilter(k>=0?r.landmarks[k]:null,k>=0&&r.worldLandmarks?r.worldLandmarks[k]:null); }catch(e){}
+}
+$('poseBtn').onclick=()=>{
+  poseOn=!poseOn; noAuto=false; $('poseBtn').classList.toggle('on',poseOn);
+  if(poseOn){
+    if(!track&&video.src){
+      if(video.duration<=20) busyRun(()=>analyzeStudent());
+      else initPose().then(liveChoose); // 긴 영상: 사전 분석 없이 실시간 인식 → 모든 구간에서 바로 표시
+    }
+    detect();
+  } else if(!track) pose=null;
+  render();
+};
+
+/* ---------- 그리기 도구 ---------- */
+function setTool(t){
+  tool=t; angPts=[]; draft=null;
+  if(t==='joint'&&!poseOn){ poseOn=true; $('poseBtn').classList.add('on'); }
+  document.querySelectorAll('#tools button').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
+  $('hint').textContent=HINTS[t]||''; render();
+}
+document.querySelectorAll('#tools button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+
+const sc=()=>cv.width/720;
+function pt(e,raw){
+  const r=cv.getBoundingClientRect();
+  let p={x:(e.clientX-r.left)/r.width*cv.width, y:(e.clientY-r.top)/r.height*cv.height};
+  if(!raw && $('snap').checked && poseOn && pose){
+    const lim=26*cv.width/r.width; let best=null,bd=lim;
+    pose.forEach(l=>{const d=Math.hypot(l.x*cv.width-p.x,l.y*cv.height-p.y); if(d<bd){bd=d;best={x:l.x*cv.width,y:l.y*cv.height}}});
+    if(best) p=best;
+  }
+  return p;
+}
+const base=()=>({id:++annId,color:$('color').value,w:parseFloat($('width').value),t:video.currentTime});
+
+cv.addEventListener('pointerdown',e=>{
+  if(!video.src) return;
+  fz=null; video.pause();
+  cv.setPointerCapture(e.pointerId);
+  if(tool==='erase'){ erasing=true; eraseAt(pt(e,true)); return; }
+  if(tool==='joint'){ startJoint(pt(e,true)); return; }
+  const p=pt(e);
+  if(tool==='text'){
+    const s=prompt('입력할 글자'); if(s){anns.push({...base(),type:'text',pts:[p],text:s});}
+    changed(); return;
+  }
+  if(tool==='angle'){
+    angPts.push(p);
+    if(angPts.length===3){ anns.push({...base(),type:'angle',pts:angPts.slice()}); angPts=[]; }
+    changed(); return;
+  }
+  draft={...base(),type:tool,pts:[p]};
+  render();
+});
+cv.addEventListener('pointermove',e=>{
+  if(erasing){ eraseAt(pt(e,true)); return; }
+  if(jdrag){ moveJoint(pt(e,true)); return; }
+  if(draft){
+    const p=pt(e);
+    if(tool==='pen') draft.pts.push(p); else draft.pts[1]=p;
+    render();
+  }
+});
+cv.addEventListener('pointercancel',()=>{erasing=false; if(jdrag) endJoint();});
+cv.addEventListener('pointerup',()=>{
+  erasing=false;
+  if(jdrag){ endJoint(); return; }
+  if(draft){ if(draft.pts.length>1) anns.push(draft); draft=null; changed(); }
+});
+
+$('undo').onclick=()=>{anns.pop();angPts=[];changed()};
+$('clearFrame').onclick=()=>{anns=anns.filter(a=>!vis(a,true));changed()};
+$('clearAll').onclick=()=>{ if(anns.length&&confirm('그린 것을 전부 지울까요?')){anns=[];changed()} };
+['always','autoAngle','ghost','pip','scoreOn','trailLen','forceSel','wtOn'].forEach(i=>$(i).onchange=render);
+
+const vis=(a,ignoreAlways)=>(!ignoreAlways&&$('always').checked)||Math.abs(vtime()-a.t)<0.09;
+
+/* ---------- 렌더링 ---------- */
+function ang(a,b,c){
+  const v1=Math.atan2(a.y-b.y,a.x-b.x), v2=Math.atan2(c.y-b.y,c.x-b.x);
+  let d=v2-v1; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI;
+  return {start:v1,diff:d,deg:Math.abs(d)*180/Math.PI};
+}
+function label(txt,x,y,color,size){
+  ctx.font=`bold ${size}px sans-serif`; ctx.lineWidth=size/4; ctx.strokeStyle='rgba(0,0,0,.85)'; ctx.lineJoin='round';
+  ctx.strokeText(txt,x,y); ctx.fillStyle=color; ctx.fillText(txt,x,y);
+}
+function drawAnn(a){
+  const s=sc(), lw=a.w*s*1.4;
+  ctx.save(); ctx.strokeStyle=a.color; ctx.fillStyle=a.color; ctx.lineWidth=lw; ctx.lineCap='round'; ctx.lineJoin='round';
+  const P=a.pts;
+  if(a.type==='pen'){ ctx.beginPath(); P.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke(); }
+  else if(a.type==='line'||a.type==='dash'||a.type==='arrow'){
+    if(P.length<2){ctx.restore();return}
+    if(a.type==='dash') ctx.setLineDash([lw*3,lw*2.2]);
+    ctx.beginPath(); ctx.moveTo(P[0].x,P[0].y); ctx.lineTo(P[1].x,P[1].y); ctx.stroke(); ctx.setLineDash([]);
+    if(a.type==='arrow'){
+      const th=Math.atan2(P[1].y-P[0].y,P[1].x-P[0].x), L=lw*4.5;
+      ctx.beginPath(); ctx.moveTo(P[1].x,P[1].y);
+      ctx.lineTo(P[1].x-L*Math.cos(th-0.45),P[1].y-L*Math.sin(th-0.45));
+      ctx.lineTo(P[1].x-L*Math.cos(th+0.45),P[1].y-L*Math.sin(th+0.45));
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  else if(a.type==='circle'){
+    if(P.length<2){ctx.restore();return}
+    const cx=(P[0].x+P[1].x)/2, cy=(P[0].y+P[1].y)/2;
+    ctx.beginPath(); ctx.ellipse(cx,cy,Math.abs(P[1].x-P[0].x)/2||1,Math.abs(P[1].y-P[0].y)/2||1,0,0,Math.PI*2); ctx.stroke();
+  }
+  else if(a.type==='text'){ label(a.text,P[0].x,P[0].y,a.color,30*s); }
+  else if(a.type==='angle'){
+    const [A,B,C]=P;
+    ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.lineTo(C.x,C.y); ctx.stroke();
+    const r=ang(A,B,C), R=Math.min(70*s,Math.hypot(A.x-B.x,A.y-B.y)*0.6,Math.hypot(C.x-B.x,C.y-B.y)*0.6);
+    ctx.lineWidth=lw*0.8; ctx.beginPath(); ctx.arc(B.x,B.y,R,r.start,r.start+r.diff,r.diff<0); ctx.stroke();
+    const mid=r.start+r.diff/2;
+    label(Math.round(r.deg)+'°',B.x+Math.cos(mid)*(R+22*s)-18*s,B.y+Math.sin(mid)*(R+22*s)+8*s,a.color,30*s);
+    P.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,lw*1.2,0,7);ctx.fill()});
+  }
+  ctx.restore();
+}
+
+const LINKS=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],[27,29],[29,31],[27,31],[28,30],[30,32],[28,32],[15,17],[15,19],[15,21],[16,18],[16,20],[16,22]];
+const TRI=[[11,13,15],[12,14,16],[23,25,27],[24,26,28],[13,11,23],[14,12,24],[11,23,25],[12,24,26]];
+const JN=['왼 팔꿈치','오른 팔꿈치','왼 무릎','오른 무릎','왼 어깨','오른 어깨','왼 고관절','오른 고관절'];
+const SWP=[0,4,5,6,1,2,3,8,7,10,9,12,11,14,13,16,15,18,17,20,19,22,21,24,23,26,25,28,27,30,29,32,31];
+const TJ=[
+  {k:'rf',i:32,name:'오른발',c:'#ff5a5f',foot:true},
+  {k:'lf',i:31,name:'왼발',c:'#ffa94d',foot:true},
+  {k:'rh',i:16,name:'오른손',c:'#4dabf7'},
+  {k:'lh',i:15,name:'왼손',c:'#b197fc'}
+];
+const scoreCol=v=>v>=85?'#3ddc97':v>=70?'#ffd23f':'#ff6b6b';
+const diffCol=d=>d<12?'#3ddc97':d<25?'#ffd23f':'#ff6b6b';
+const curIdx=t=>Math.max(0,Math.min((cmp?cmp.fs.length:track.length)-1,Math.round(t*AFPS)));
+
+function drawPose(){
+  drawOthers();
+  if(!poseOn||!pose) return;
+  const s=sc(),W=cv.width,H=cv.height;
+  ctx.save(); ctx.lineWidth=3*s; ctx.strokeStyle='rgba(255,255,255,.95)'; ctx.lineCap='round';
+  if(!skelOn) LINKS.forEach(([i,j])=>{const a=pose[i],b=pose[j]; if(!a||!b||(a.visibility??1)<0.4||(b.visibility??1)<0.4) return;
+    ctx.beginPath(); ctx.moveTo(a.x*W,a.y*H); ctx.lineTo(b.x*W,b.y*H); ctx.stroke();});
+  if(!skelOn) pose.forEach((l,i)=>{ if(i>10&&(l.visibility??1)<0.4) return;
+    ctx.beginPath(); ctx.arc(l.x*W,l.y*H,(i<11?3:5.5)*s,0,7); ctx.fillStyle='#3fb68b'; ctx.fill();
+    ctx.lineWidth=1.5*s; ctx.strokeStyle='#fff'; ctx.stroke(); });
+  if(cmp&&$('scoreOn').checked){ // 사범과 차이 큰 관절 색 표시
+    const fi=curIdx(vtime());
+    TRI.forEach((tri,k)=>{const d=cmp.jd[fi*8+k], b=pose[tri[1]]; if(!(d>=0)||!b) return;
+      ctx.beginPath(); ctx.arc(b.x*W,b.y*H,12*s,0,7); ctx.lineWidth=3.5*s; ctx.strokeStyle=diffCol(d); ctx.stroke(); });
+  }
+  drawAngles();
+  ctx.restore();
+}
+
+/* ---------- 관절 각도 (체크한 것만 표시) ---------- */
+const ANGS=[
+  {k:'sh',name:'어깨',c:'#ffd23f',t:[[13,11,23],[14,12,24]]},      // 팔꿈치-어깨-엉덩이
+  {k:'el',name:'팔꿈치',c:'#7dd3fc',t:[[11,13,15],[12,14,16]]},    // 어깨-팔꿈치-손목
+  {k:'wr',name:'손목',c:'#c4b5fd',t:[[13,15,19],[14,16,20]]},      // 팔꿈치-손목-검지
+  {k:'hp',name:'고관절',c:'#ff9f43',t:[[11,23,25],[12,24,26]]},    // 어깨-엉덩이-무릎
+  {k:'kn',name:'무릎',c:'#3ddc97',t:[[23,25,27],[24,26,28]]},      // 엉덩이-무릎-발목
+  {k:'an',name:'발목',c:'#ff7b9c',t:[[25,27,31],[26,28,32]]},      // 무릎-발목-발끝 (정강이와 발 사이)
+  {k:'ft',name:'발 기울기',c:'#f9a8d4',foot:true,t:[[29,31],[30,32]]} // 뒤꿈치→발끝이 바닥과 이루는 각 (+ 발끝 들림)
+];
+const AGIDS=[]; ANGS.forEach(A=>[0,1].forEach(sd=>AGIDS.push(`ag_${A.k}_${sd}`))); AGIDS.push('ag_tr','angName');
+(function buildAngUI(){
+  const g=$('angGrid'); let h='';
+  ANGS.forEach(A=>{ h+=`<span class="nm">${A.name}</span>`+[0,1].map(sd=>`<label class="chk"><input type="checkbox" id="ag_${A.k}_${sd}" checked> ${sd?'오른':'왼'}</label>`).join(''); });
+  h+=`<span class="nm">몸통 기울기</span><label class="chk"><input type="checkbox" id="ag_tr" checked> 수직 기준</label><span></span>`;
+  g.innerHTML=h;
+  const setAll=f=>{ AGIDS.filter(id=>id!=='angName').forEach(id=>{ $(id).checked=f(id); }); saveSet(); render(); };
+  $('angAll').onclick=()=>setAll(()=>true);
+  $('angNone').onclick=()=>setAll(()=>false);
+  $('angArms').onclick=()=>setAll(id=>/^ag_(sh|el|wr)_/.test(id));
+  $('angLegs').onclick=()=>setAll(id=>/^ag_(hp|kn|an|ft)_/.test(id));
+  AGIDS.forEach(id=>$(id).addEventListener('change',render)); $('angMode').addEventListener('change',render);
+  $('autoAngle').addEventListener('change',()=>{ $('angPanel').hidden=!$('autoAngle').checked; });
+})();
+// 3D 각도: AI가 추정한 3D 좌표(미터)로 계산 → 정면에서 찍어도 접힌 팔·무릎이 펴진 것처럼 나오지 않아요
+const P3=i=>{ const p=pose&&pose[i]; return p&&p.wx!=null?{x:p.wx,y:p.wy,z:p.wz}:null; };
+function ang3(a,b,c){
+  const u=[a.x-b.x,a.y-b.y,a.z-b.z], v=[c.x-b.x,c.y-b.y,c.z-b.z], nu=Math.hypot(...u), nv=Math.hypot(...v);
+  if(nu<1e-4||nv<1e-4) return null;
+  return Math.acos(Math.max(-1,Math.min(1,(u[0]*v[0]+u[1]*v[1]+u[2]*v[2])/(nu*nv))))*180/Math.PI;
+}
+function drawAngles(){
+  if(!$('autoAngle').checked||!pose) return;
+  const s=sc(),W=cv.width,H=cv.height,nm=$('angName').checked,use3=$('angMode').value!=='2d';
+  const P=i=>{const p=pose[i]; return p&&(p.visibility??1)>=.5?{x:p.x*W,y:p.y*H}:null};
+  const vmin=(...ids)=>Math.min(...ids.map(i=>pose[i].visibility??1));
+  const put=(txt,x,y,c)=>{ ctx.textAlign='center'; ctx.textBaseline='middle'; label(txt,x,y,c,18*s); ctx.textBaseline='alphabetic'; ctx.textAlign='left'; };
+  ctx.save();
+  ANGS.forEach(A=>A.t.forEach((t,sd)=>{
+    if(!$(`ag_${A.k}_${sd}`).checked) return;
+    const who=(sd?'오른 ':'왼 ')+A.name+' ';
+    if(A.foot){
+      const he=P(t[0]),to=P(t[1]); if(!he||!to) return;
+      const dx=Math.abs(to.x-he.x); let deg=Math.atan2(-(to.y-he.y),Math.max(dx,1e-6))*180/Math.PI, mark='';
+      const h3=P3(t[0]),t3=P3(t[1]);
+      if(use3&&h3&&t3) deg=Math.atan2(-(t3.y-h3.y),Math.hypot(t3.x-h3.x,t3.z-h3.z))*180/Math.PI; // 발끝이 정면을 향해도 올바르게
+      else if(use3) mark='*';
+      if(vmin(...t)<.7) mark+='?';
+      const sx=to.x>=he.x?1:-1, L=Math.max(30*s,dx);
+      ctx.save(); ctx.setLineDash([5*s,5*s]); ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.moveTo(he.x,he.y); ctx.lineTo(he.x+sx*L,he.y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle=A.c; ctx.lineWidth=3*s; ctx.beginPath(); ctx.moveTo(he.x,he.y); ctx.lineTo(to.x,to.y); ctx.stroke(); ctx.restore();
+      put((nm?who:'')+(deg>=0?'+':'')+Math.round(deg)+'°'+mark,(he.x+to.x)/2,Math.max(he.y,to.y)+18*s,A.c);
+      return;
+    }
+    const a=P(t[0]),b=P(t[1]),c=P(t[2]); if(!a||!b||!c) return;
+    const r=ang(a,b,c), mid=r.start+r.diff/2; let deg=r.deg, mark='';
+    if(use3){ const a3=P3(t[0]),b3=P3(t[1]),c3=P3(t[2]), v=a3&&b3&&c3?ang3(a3,b3,c3):null; if(v!=null) deg=v; else mark='*'; }
+    if(vmin(...t)<.7) mark+='?';
+    ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.arc(b.x,b.y,22*s,r.start,r.start+r.diff,r.diff<0); ctx.closePath();
+    ctx.fillStyle=A.c+'55'; ctx.fill(); ctx.lineWidth=2*s; ctx.strokeStyle=A.c; ctx.stroke();
+    // 글자는 팔다리 바깥쪽(각의 반대편)에 놓아 겹치지 않게
+    put((nm?who:'')+Math.round(deg)+'°'+mark, b.x-Math.cos(mid)*(nm?46:32)*s, b.y-Math.sin(mid)*(nm?30:26)*s, A.c);
+  }));
+  if($('ag_tr').checked){
+    const a=P(11),b=P(12),c=P(23),d=P(24);
+    if(a&&b&&c&&d){
+      const S={x:(a.x+b.x)/2,y:(a.y+b.y)/2}, Hh={x:(c.x+d.x)/2,y:(c.y+d.y)/2};
+      let deg=Math.atan2(S.x-Hh.x,-(S.y-Hh.y))*180/Math.PI, mk='';
+      const Sh=[P3(11),P3(12)],Hp=[P3(23),P3(24)];
+      if(use3&&Sh[0]&&Sh[1]&&Hp[0]&&Hp[1]){ // 위쪽(수직)과 몸통(엉덩이→어깨)이 이루는 각, 앞뒤·좌우 기울기 모두 반영
+        const vx=(Sh[0].x+Sh[1].x-Hp[0].x-Hp[1].x)/2, vy=(Sh[0].y+Sh[1].y-Hp[0].y-Hp[1].y)/2, vz=(Sh[0].z+Sh[1].z-Hp[0].z-Hp[1].z)/2;
+        const mag=Math.hypot(vx,vy,vz); if(mag>1e-4){ const a3=Math.acos(Math.max(-1,Math.min(1,-vy/mag)))*180/Math.PI; deg=(deg>=0?1:-1)*a3; } }
+      else if(use3) mk='*';
+      const Lv=Math.max(40*s,Math.hypot(S.x-Hh.x,S.y-Hh.y));
+      ctx.save(); ctx.setLineDash([5*s,5*s]); ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.moveTo(Hh.x,Hh.y); ctx.lineTo(Hh.x,Hh.y-Lv); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle='#ffffff'; ctx.lineWidth=3*s; ctx.beginPath(); ctx.moveTo(Hh.x,Hh.y); ctx.lineTo(S.x,S.y); ctx.stroke(); ctx.restore();
+      put((nm?'몸통 ':'')+Math.abs(Math.round(deg))+'°'+mk+(Math.abs(deg)<1?'':deg>0?' →':' ←'),(S.x+Hh.x)/2+(deg>=0?-1:1)*40*s,(S.y+Hh.y)/2,'#ffffff');
+    }
+  }
+  ctx.restore();
+}
+
+/* ---------- 해골 모형 ---------- */
+$('skelBtn').onclick=()=>{
+  skelOn=!skelOn; $('skelBtn').classList.toggle('on',skelOn); $('skOpt').hidden=!skelOn;
+  if(skelOn&&!poseOn) $('poseBtn').click(); else render();
+};
+['skDim'].forEach(id=>$(id).oninput=()=>render());
+['skName','skRib','skHand'].forEach(id=>$(id).onchange=()=>render());
+
+function drawSkelDim(){
+  if(!skelOn||!poseOn||!pose) return;
+  const a=parseInt($('skDim').value)/100; if(!(a>0)) return;
+  ctx.save(); ctx.fillStyle=`rgba(4,6,10,${a})`; ctx.fillRect(0,0,cv.width,cv.height); ctx.restore();
+}
+
+const SK={t:null,pth:null,cth:null,pf:0,cf:0};
+const wrapA=x=>{while(x>Math.PI)x-=2*Math.PI;while(x<-Math.PI)x+=2*Math.PI;return x};
+function drawSkeleton(){
+  if(!skelOn||!poseOn||!pose) return;
+  const s=sc(),W=cv.width,H=cv.height;
+  const P=i=>{const l=pose[i]; return (l&&(l.visibility??1)>=0.4)?{x:l.x*W,y:l.y*H}:null;};
+  const mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+  const lerp=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const unit=(a,b)=>{const d=dist(a,b)||1;return {x:(b.x-a.x)/d,y:(b.y-a.y)/d};};
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const BONE='#efe6d0', EDGE='#2a2216', HI='rgba(255,252,240,.7)', DARK='#120e08';
+  const showRib=$('skRib').checked, showHand=$('skHand').checked, showName=$('skName').checked;
+
+  const sL=P(11),sR=P(12),hL=P(23),hR=P(24);
+  const hasT=!!(sL&&sR&&hL&&hR);
+  const nose=P(0),eL=P(7),eR=P(8);
+  // 바라보는 방향(화면 x 부호)
+  const tn=vtime();
+  if(SK.t==null||tn<SK.t-0.05||tn-SK.t>0.6){SK.pth=null;SK.pf=0;SK.t=tn;}
+  else if(Math.abs(tn-SK.t)>1e-4){SK.pth=SK.cth;SK.pf=SK.cf;SK.t=tn;}
+  let fv=0;
+  if(nose&&(eL||eR)){ const e=eL&&eR?mid(eL,eR):(eL||eR); fv=nose.x-e.x; }
+  else { [[31,29],[32,30]].forEach(([t,h])=>{const a=P(t),b=P(h); if(a&&b) fv+=a.x-b.x;}); }
+  const f=Math.abs(fv)>H*.006?(fv>0?1:-1):(SK.pf||(fv>=0?1:-1));
+  SK.cf=f;
+
+  let S,Hm,L,a,ex,k=1,kp=1,swd=1;
+  if(hasT){ S=mid(sL,sR); Hm=mid(hL,hR); L=dist(S,Hm)||1; a=unit(Hm,S); ex={x:-a.y,y:a.x};
+    swd=dist(sL,sR)/L; k=clamp(swd/0.78,0.3,1.15); kp=clamp(dist(hL,hR)/L/0.36,0.3,1.15); }
+  else { L= sL&&sR? dist(sL,sR)*1.3 : hL&&hR? dist(hL,hR)*2.6 : H*0.25; }
+  const back={x:hasT?-ex.x*f:0,y:hasT?-ex.y*f:0};
+  const X=(lat,dep,kk)=>lat*kk+f*dep*(1-Math.min(kk,1));
+  const RP=(lat,dep,t,kk)=>({x:S.x+(Hm.x-S.x)*t+ex.x*X(lat,dep,kk??k)*L, y:S.y+(Hm.y-S.y)*t+ex.y*X(lat,dep,kk??k)*L});
+
+  ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
+  const edge=1.3*s;
+  const fillBone=()=>{ctx.fillStyle=BONE; ctx.fill(); ctx.lineWidth=edge; ctx.strokeStyle=EDGE; ctx.stroke();};
+  const knob=(p,r,dbl,n)=>{
+    ctx.beginPath(); if(dbl&&n){ ctx.arc(p.x+n.x*r*.42,p.y+n.y*r*.42,r*.62,0,7); ctx.moveTo(p.x-n.x*r*.42+r*.62,p.y-n.y*r*.42); ctx.arc(p.x-n.x*r*.42,p.y-n.y*r*.42,r*.62,0,7); }
+    else ctx.arc(p.x,p.y,r,0,7);
+    fillBone();
+  };
+  const longBone=(A,B,ws,we,o={})=>{
+    if(!A||!B) return; const d=dist(A,B); if(d<3) return; const t=unit(A,B), n={x:-t.y,y:t.x}, N=14, Lp=[],Rp=[];
+    for(let i=0;i<=N;i++){ const u=i/N, w=(ws+(we-ws)*Math.pow(Math.abs(2*u-1),2.4))/2, c={x:A.x+t.x*d*u,y:A.y+t.y*d*u};
+      Lp.push({x:c.x+n.x*w,y:c.y+n.y*w}); Rp.push({x:c.x-n.x*w,y:c.y-n.y*w}); }
+    ctx.beginPath(); Lp.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); for(let i=N;i>=0;i--) ctx.lineTo(Rp[i].x,Rp[i].y); ctx.closePath(); fillBone();
+    if(o.kA!==0) knob(A,we*(o.rA||.55),o.dA,n); if(o.kB!==0) knob(B,we*(o.rB||.55),o.dB,n);
+    ctx.beginPath(); ctx.moveTo(A.x+t.x*d*.14-n.x*ws*.18,A.y+t.y*d*.14-n.y*ws*.18); ctx.lineTo(B.x-t.x*d*.14-n.x*ws*.18,B.y-t.y*d*.14-n.y*ws*.18);
+    ctx.lineWidth=1.4*s; ctx.strokeStyle=HI; ctx.stroke();
+  };
+  const thin=(A,B,w)=>{ if(!A||!B) return; ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y);
+    ctx.lineWidth=w+2*s; ctx.strokeStyle=EDGE; ctx.stroke(); ctx.lineWidth=w; ctx.strokeStyle=BONE; ctx.stroke(); };
+  const dot=(p,r)=>{ ctx.beginPath(); ctx.arc(p.x,p.y,r,0,7); fillBone(); };
+  const labels=[];
+  const names=(txt,p)=>{ if(p) labels.push([txt,p]); };
+
+  /* ----- 몸통 ----- */
+  let spineAt=null, headC=null, R=L*0.2, late=null;
+  if(hasT){
+    const amp=0.07*L*(1-clamp(swd/0.7,0,1)), off=0.07*(1-Math.min(k,1))*L;
+    const cv_=t=>Math.sin(Math.PI*clamp(t/0.62,0,1))-(t>0.5?0.8*Math.sin(Math.PI*clamp((t-0.5)/0.5,0,1)):0);
+    spineAt=t=>{ const b=lerp(S,Hm,t), c=amp*cv_(t)+off; return {x:b.x+back.x*c,y:b.y+back.y*c}; };
+
+    // 견갑골 (등쪽, 반투명)
+    if(showRib){ ctx.save(); ctx.globalAlpha=.6;
+      [-1,1].forEach(sd=>{ const pts=[[sd*.07,.07],[sd*.28,.03],[sd*.18,.30]].map(([lat,t])=>RP(lat,-.1,t));
+        ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); fillBone(); });
+      ctx.restore(); }
+
+    // 갈비뼈
+    if(showRib){
+      for(let i=0;i<10;i++){
+        const t0=0.05+i*0.052, w=0.12+0.19*Math.sin(Math.PI*(i+1)/11.5), fl=i>=7;
+        [-1,1].forEach(sd=>{
+          const p0=RP(0,-.07,t0), p1=RP(sd*w*1.1,-.04,t0+.012), p2=RP(sd*w,.09,t0+.065), p3=RP(sd*(fl?w*.55:.05),fl?.15:.19,t0+(fl?.12:.17));
+          ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.bezierCurveTo(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y);
+          const lw=Math.max(2.2*s,0.017*L);
+          ctx.lineWidth=lw+2*s; ctx.strokeStyle=EDGE; ctx.stroke(); ctx.lineWidth=lw; ctx.strokeStyle=fl?'#cfc6b0':BONE; ctx.stroke();
+        });
+      }
+      late=()=>{
+      // 흉골 (손잡이·몸통·검상돌기)
+      const st=[[-.05,.19,.03],[.05,.19,.03],[.032,.19,.12],[.03,.19,.34],[0,.19,.41],[-.03,.19,.34],[-.032,.19,.12]].map(([lat,dep,t])=>RP(lat,dep,t));
+      ctx.beginPath(); st.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); fillBone();
+      names('흉골',RP(0,.19,.2)); names('갈비뼈',RP(.2,.02,.22));
+      // 쇄골
+      [[sL],[sR]].forEach(([sp])=>{ const N0=RP(0,.17,.025), m=lerp(N0,sp,.5), up={x:a.x*.035*L,y:a.y*.035*L};
+        ctx.beginPath(); ctx.moveTo(N0.x,N0.y); ctx.quadraticCurveTo(m.x+up.x,m.y+up.y,sp.x,sp.y);
+        ctx.lineWidth=0.026*L+2*s; ctx.strokeStyle=EDGE; ctx.stroke(); ctx.lineWidth=0.026*L; ctx.strokeStyle=BONE; ctx.stroke(); });
+      names('쇄골',lerp(RP(0,.17,.025),sL,.5));
+      };
+
+    }
+
+    // 골반
+    { const H0=Hm, Q=(lat,v,dep=0)=>({x:H0.x+ex.x*X(lat,dep,kp)*L+a.x*v*L, y:H0.y+ex.y*X(lat,dep,kp)*L+a.y*v*L});
+      [-1,1].forEach(sd=>{
+        const pts=[[.06,.22],[.15,.27],[.29,.25],[.35,.14],[.31,.03],[.22,-.02],[.2,-.1],[.15,-.15],[.06,-.17],[.04,-.1],[.07,-.02],[.05,.1]];
+        ctx.beginPath(); pts.forEach(([lat,v],i)=>{const p=Q(sd*lat,v); i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);}); ctx.closePath(); fillBone();
+        // 장골와 곡선 / 폐쇄공
+        const c1=Q(sd*.22,.12), c2=Q(sd*.14,.06), c3=Q(sd*.2,.22);
+        ctx.beginPath(); ctx.moveTo(c3.x,c3.y); ctx.quadraticCurveTo(c1.x,c1.y,c2.x,c2.y); ctx.lineWidth=1.2*s; ctx.strokeStyle='rgba(60,45,25,.55)'; ctx.stroke();
+        const ob=Q(sd*.11,-.08); ctx.beginPath(); ctx.ellipse(ob.x,ob.y,.04*L*Math.max(kp,.35),.05*L,Math.atan2(a.x,-a.y)*0+Math.atan2(ex.y,ex.x)*0,0,0,7); ctx.fillStyle=DARK; ctx.fill();
+      });
+      // 천골·미골
+      const sac=[[-.09,.22],[.09,.22],[.06,.04],[.015,-.07],[-.015,-.07],[-.06,.04]].map(([lat,v])=>Q(lat,v,-.06));
+      ctx.beginPath(); sac.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.fillStyle='#e0d5ba'; ctx.fill(); ctx.lineWidth=edge; ctx.strokeStyle=EDGE; ctx.stroke();
+      for(let q=0;q<3;q++){ const l=Q(-.05+q*0,.15-q*.07,-.06), r=Q(.05,.15-q*.07,-.06); ctx.beginPath(); ctx.moveTo(l.x,l.y); ctx.lineTo(r.x,r.y); ctx.lineWidth=1*s; ctx.strokeStyle='rgba(60,45,25,.6)'; ctx.stroke(); }
+      names('골반',Q(.3,.12)); names('천골',Q(0,.05,-.06));
+    }
+  }
+
+  /* ----- 손 뼈 (수근골 8 · 중수골 5 · 지골 14) ----- */
+  const handBones=(Wr,E,idx,sg)=>{
+    const t17=P(idx[0]),t19=P(idx[1]),t21=P(idx[2]);
+    const m=t19&&t17?mid(t19,t17):(t19||t17); if(!m) return;
+    const fd=unit(E,Wr), rd=unit(Wr,m);
+    let dv={x:fd.x*.35+rd.x*.65,y:fd.y*.35+rd.y*.65}; const dl=Math.hypot(dv.x,dv.y)||1; const dir={x:dv.x/dl,y:dv.y/dl};
+    const HL=clamp(dist(Wr,m)*1.35,.22*L,.38*L), hw=HL*.46;
+    const n0={x:-dir.y,y:dir.x};
+    const ts=t21?(Math.sign((t21.x-Wr.x)*n0.x+(t21.y-Wr.y)*n0.y)||sg):sg, nn={x:n0.x*ts,y:n0.y*ts};
+    const Hd=(a,b)=>({x:Wr.x+dir.x*a*HL+nn.x*b*hw,y:Wr.y+dir.y*a*HL+nn.y*b*hw});
+    // 수근골 (근위열 4 + 원위열 4)
+    [[.07,.30,.1],[.07,.10,.095],[.075,-.10,.09],[.035,-.30,.07],[.14,.42,.095],[.16,.21,.085],[.17,0,.1],[.16,-.22,.095]].forEach(([a,b,r])=>dot(Hd(a,b),r*hw));
+    // 중수골 (검지~소지) + 지골
+    const MCb=[.20,.05,-.10,-.24], MCh=[.34,.13,-.11,-.34], hu=[.46,.47,.45,.41], tu=[1.0,1.05,.98,.83], tb=[.38,.13,-.13,-.40];
+    const ws=[1,1,.95,.85];
+    for(let q=3;q>=0;q--){
+      const B=Hd(.19,MCb[q]), Hh=Hd(hu[q],MCh[q]), T=Hd(tu[q],tb[q]);
+      longBone(B,Hh,.17*hw,.27*hw,{rA:.5,rB:.52,dB:false});
+      const f1=lerp(Hh,T,.46),f2=lerp(Hh,T,.46+.29*ws[q]+(1-ws[q])*.0),f2b=lerp(Hh,T,.75);
+      longBone(Hh,f1,.15*hw,.23*hw,{rA:.5,rB:.5});
+      longBone(f1,f2b,.12*hw,.19*hw,{rA:.5,rB:.46});
+      longBone(f2b,T,.1*hw,.17*hw,{rA:.46,rB:.5});
+      dot(T,.065*hw);
+    }
+    // 엄지: 대능형골 → 중수골 → 기절골 → 말절골
+    let TT; if(t21){ const d=dist(Wr,t21)||1, u=unit(Wr,t21); TT={x:Wr.x+u.x*clamp(d*1.3,.12*L,.26*L),y:Wr.y+u.y*clamp(d*1.3,.12*L,.26*L)}; } else TT=Hd(.62,1.05);
+    const tb0=Hd(.13,.42), j0=lerp(tb0,TT,.32), j1=lerp(tb0,TT,.66);
+    longBone(tb0,j0,.2*hw,.3*hw,{rA:.5,rB:.5});
+    longBone(j0,j1,.17*hw,.26*hw,{rA:.5,rB:.48});
+    longBone(j1,TT,.14*hw,.22*hw,{rA:.48,rB:.5});
+    dot(TT,.08*hw);
+    names('수근골',Hd(.1,0)); names('중수골',Hd(.32,.05)); names('지골',Hd(.82,.1));
+  };
+  /* ----- 발 뼈 (종골 · 거골 · 주상골 · 입방골 · 설상골 3 · 중족골 5 · 족지골 14) ----- */
+  const footBones=(A,Hl,To)=>{
+    const fl=dist(Hl,To); if(fl<4) return;
+    const d=unit(Hl,To); let nn={x:d.y,y:-d.x};
+    const sd=(A.x-Hl.x)*nn.x+(A.y-Hl.y)*nn.y;
+    if(Math.abs(sd)>.05*fl){ if(sd<0) nn={x:-nn.x,y:-nn.y}; } else if(nn.y>0) nn={x:-nn.x,y:-nn.y};
+    const ks=clamp(Math.abs(sd)/(.3*fl),.7,1.4)||1;
+    const Pf=(u,v)=>({x:Hl.x+d.x*u*fl+nn.x*v*fl*ks,y:Hl.y+d.y*u*fl+nn.y*v*fl*ks});
+    const poly=pts=>{ ctx.beginPath(); pts.forEach(([u,v],i)=>{const q=Pf(u,v); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)}); ctx.closePath(); fillBone(); };
+    const ell=(u,v,ru,rv)=>{ const c=Pf(u,v); ctx.beginPath(); ctx.ellipse(c.x,c.y,ru*fl,rv*fl*ks,Math.atan2(d.y,d.x),0,7); fillBone(); };
+    // 종골 / 거골
+    poly([[0,.04],[0,.15],[.05,.22],[.16,.24],[.27,.19],[.37,.15],[.4,.08],[.36,.03],[.2,0],[.08,0]]);
+    ctx.beginPath(); const c1=Pf(.06,.12),c2=Pf(.28,.1); ctx.moveTo(c1.x,c1.y); ctx.lineTo(c2.x,c2.y); ctx.lineWidth=1*s; ctx.strokeStyle='rgba(60,45,25,.4)'; ctx.stroke();
+    poly([[.13,.26],[.22,.32],[.32,.27],[.4,.22],[.35,.19],[.2,.2]]);
+    // 주상골 · 입방골 · 설상골
+    ell(.44,.18,.045,.05); ell(.47,.07,.05,.05);
+    ell(.55,.19,.035,.045); ell(.56,.13,.034,.04); ell(.55,.075,.034,.036);
+    // 중족골 5 (제5→제1 순서로 겹쳐 그림)
+    const mb=[.13,.125,.11,.09,.07], mh=[.05,.04,.035,.03,.025], hu=[.80,.84,.82,.78,.74], mw=[1.25,1,.95,.9,.9];
+    for(let q=4;q>=0;q--) longBone(Pf(.6,mb[q]),Pf(hu[q],mh[q]),.032*fl*mw[q],.058*fl*mw[q],{rA:.5,rB:.55});
+    ell(.76,.012,.018,.014); ell(.8,.01,.018,.014); // 종자골
+    // 족지골: 엄지 2마디 + 나머지 4발가락 3마디
+    const tipU=[1.0,.97,.92,.87,.82], tipV=[.035,.04,.032,.026,.02];
+    for(let q=4;q>=0;q--){
+      const H0=Pf(hu[q],mh[q]), T0=Pf(tipU[q],tipV[q]);
+      if(q===0){ const j=lerp(H0,T0,.52); longBone(H0,j,.034*fl,.052*fl,{rA:.5,rB:.5}); longBone(j,T0,.03*fl,.05*fl,{rA:.5,rB:.52}); }
+      else { const j1=lerp(H0,T0,.44), j2=lerp(H0,T0,.72);
+        longBone(H0,j1,.024*fl,.038*fl,{rA:.5,rB:.5}); longBone(j1,j2,.02*fl,.032*fl,{rA:.5,rB:.5}); longBone(j2,T0,.018*fl,.03*fl,{rA:.5,rB:.52}); }
+      dot(T0,.018*fl);
+    }
+    dot(A,.04*L);
+    names('종골',Pf(.08,.1)); names('거골',Pf(.25,.27)); names('중족골',Pf(.7,.09)); names('족지골',Pf(.93,.04));
+  };
+
+  /* ----- 팔 ----- */
+  const arm=(si,ei,wi,hi,idx)=>{
+    const Sh=P(si),E=P(ei),Wr=P(wi); if(!Sh||!E) return;
+    longBone(Sh,E,.045*L,.085*L,{kA:0,rB:.5,dB:true});
+    dot(Sh,.048*L);
+    if(Wr){
+      const t=unit(E,Wr), n={x:-t.y,y:t.x}; let sg=1; const th=P(idx[2]); if(th) sg=Math.sign((th.x-Wr.x)*n.x+(th.y-Wr.y)*n.y)||1;
+      const o=.02*L;
+      longBone({x:E.x-n.x*sg*o*.9,y:E.y-n.y*sg*o*.9},{x:Wr.x-n.x*sg*o*1.4,y:Wr.y-n.y*sg*o*1.4},.03*L,.056*L,{kA:0,rB:.5}); // 요골(엄지쪽)
+      longBone({x:E.x+n.x*sg*o*.9,y:E.y+n.y*sg*o*.9},{x:Wr.x+n.x*sg*o*.9,y:Wr.y+n.y*sg*o*.9},.028*L,.046*L,{kA:.5,rB:.45}); // 척골
+      names('상완골',lerp(Sh,E,.5)); names('요골·척골',lerp(E,Wr,.5));
+      if(showHand) handBones(Wr,E,idx,sg);
+    }
+  };
+  arm(11,13,15,0,[17,19,21]); arm(12,14,16,0,[18,20,22]);
+
+  /* ----- 다리 ----- */
+  const leg=(hi,ki,ai,hl,ti)=>{
+    const Hp=P(hi),K=P(ki),A=P(ai); if(!Hp||!K) return;
+    let lat; if(hasT){ const sg=Math.sign((Hp.x-Hm.x)*ex.x+(Hp.y-Hm.y)*ex.y); lat=sg&&Math.abs(sg*dist(Hp,Hm))>.02*L?{x:ex.x*sg,y:ex.y*sg}:{x:back.x,y:back.y}; }
+    else { const t=unit(Hp,K); lat={x:-t.y,y:t.x}; }
+    const tf=unit(Hp,K);
+    // 대퇴골: 골두 - 경부 - 대전자
+    const Tn={x:Hp.x+tf.x*.07*L+lat.x*.06*L,y:Hp.y+tf.y*.07*L+lat.y*.06*L};
+    longBone({x:Hp.x+tf.x*.05*L+lat.x*.025*L,y:Hp.y+tf.y*.05*L+lat.y*.025*L},K,.062*L,.108*L,{kA:0,dB:true,rB:.55});
+    thin(Hp,Tn,.036*L); dot(Hp,.05*L); dot(Tn,.034*L);
+    names('대퇴골',lerp(Hp,K,.5));
+    // 슬개골
+    const pt={x:lerp(K,Hp,.05).x+ex?.x*f*.045*(1-Math.min(k,1))*L||lerp(K,Hp,.05).x, y:lerp(K,Hp,.05).y+ex?.y*f*.045*(1-Math.min(k,1))*L||lerp(K,Hp,.05).y};
+    if(A){
+      longBone(K,A,.05*L,.098*L,{kA:0,rB:.5});
+      const tt=unit(K,A), n={x:-tt.y,y:tt.x}, fs=lat.x*n.x+lat.y*n.y>=0?1:-1;
+      longBone({x:K.x+n.x*fs*.05*L,y:K.y+n.y*fs*.05*L},{x:A.x+n.x*fs*.052*L,y:A.y+n.y*fs*.052*L},.024*L,.044*L,{kA:.5,rB:.5}); // 비골
+      dot(A,.036*L); // 距骨
+      names('경골·비골',lerp(K,A,.5));
+      // 발
+      const Hl=P(hl),To=P(ti);
+      if(showHand&&Hl&&To) footBones(A,Hl,To);
+      else if(Hl) longBone({x:A.x,y:A.y},Hl,.04*L,.06*L,{kA:0,rB:.5}); // 종골
+    }
+    // 슬개골은 정강이 위에
+    ctx.beginPath(); ctx.ellipse(pt.x,pt.y,.036*L,.045*L,0,0,7); fillBone(); names('슬개골',pt);
+  };
+  leg(23,25,27,29,31); leg(24,26,28,30,32);
+
+  /* ----- 척추 (골반·갈비 위) ----- */
+  if(hasT && showRib){
+    const tan=t=>{ const p=spineAt(clamp(t-.01,0,1)), q=spineAt(clamp(t+.01,0,1)); return unit(p,q); };
+    const vert=(p,t,wid,hei,tpl,spl)=>{ const n={x:-t.y,y:t.x}, ang=Math.atan2(t.y,t.x);
+      // 가시돌기 (옆모습일수록 길게)
+      const sp=wid*.5+spl; ctx.beginPath(); ctx.moveTo(p.x+back.x*wid*.35,p.y+back.y*wid*.35); ctx.lineTo(p.x+back.x*sp+t.x*hei*.25,p.y+back.y*sp+t.y*hei*.25);
+      ctx.lineWidth=Math.max(2*s,hei*.28); ctx.strokeStyle=EDGE; ctx.stroke(); ctx.lineWidth=Math.max(1.2*s,hei*.2); ctx.strokeStyle=BONE; ctx.stroke();
+      // 가로돌기
+      if(tpl>1){ [-1,1].forEach(sd=>{ ctx.beginPath(); ctx.moveTo(p.x+n.x*sd*wid*.4,p.y+n.y*sd*wid*.4); ctx.lineTo(p.x+n.x*sd*(wid*.5+tpl),p.y+n.y*sd*(wid*.5+tpl));
+        ctx.lineWidth=Math.max(2*s,hei*.3)+1.6*s; ctx.strokeStyle=EDGE; ctx.stroke(); ctx.lineWidth=Math.max(2*s,hei*.3); ctx.strokeStyle=BONE; ctx.stroke(); }); }
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(ang);
+      const w=hei,h=wid,r=hei*.3; ctx.beginPath(); ctx.moveTo(-w/2+r,-h/2); ctx.lineTo(w/2-r,-h/2); ctx.quadraticCurveTo(w/2,-h/2,w/2,-h/2+r); ctx.lineTo(w/2,h/2-r); ctx.quadraticCurveTo(w/2,h/2,w/2-r,h/2);
+      ctx.lineTo(-w/2+r,h/2); ctx.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r); ctx.lineTo(-w/2,-h/2+r); ctx.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2); ctx.closePath(); fillBone(); ctx.restore(); };
+    const dep=(1-Math.min(k,1));
+    for(let i=0;i<5;i++){ const t=.62+i*.078; vert(spineAt(t),tan(t),.075*L,.056*L,.06*L*k,.05*L*dep+.01*L); }       // 요추
+    for(let i=0;i<12;i++){ const t=.02+i*.049; vert(spineAt(t),tan(t),.05*L+i*.0022*L,.04*L+i*.0008*L,.04*L*k,.05*L*dep+.012*L); } // 흉추
+    names('척추',spineAt(.45));
+  }
+  if(late) late();
+
+  /* ----- 두개골 + 경추 ----- */
+  { let c=null; if(eL&&eR) c=mid(eL,eR); else if(eL||eR){ const e=eL||eR; c=nose?lerp(e,nose,.28):e; } else if(nose) c={x:nose.x,y:nose.y-.35*R};
+    if(c){
+      const top=hasT?S:{x:c.x,y:c.y+R*2.4};
+      let up=unit(top,c); if(Math.hypot(up.x,up.y)<.01) up={x:0,y:-1};
+      if(eL&&eR&&hasT) R=Math.max(.19*L,dist(eL,eR)*.55); else if(hasT) R=.2*L; else R=Math.max(.2*L,H*.04);
+      const thR=Math.atan2(up.x,-up.y); let tgt=thR;
+      if(hasT){ const thT=Math.atan2(a.x,-a.y); tgt=thT+clamp(wrapA(thR-thT),-1.05,1.05); }
+      let th=tgt; if(SK.pth!=null) th=SK.pth+clamp(wrapA(tgt-SK.pth),-.45,.45)*.5;
+      SK.cth=th;
+      const exh={x:Math.cos(th),y:Math.sin(th)};
+      const yaw=nose?clamp(((nose.x-c.x)*exh.x+(nose.y-c.y)*exh.y)/(R*.85),-1,1):0, ay=Math.abs(yaw), fx=yaw*.45;
+      // 경추 7개
+      if(hasT&&showRib){ const B0={x:c.x-up.x*R*.85,y:c.y-up.y*R*.85}, base=S;
+        for(let i=0;i<7;i++){ const u=(i+.5)/7, p=lerp(base,B0,u), t=unit(base,B0), n={x:-t.y,y:t.x}; // 아래→위
+          ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(Math.atan2(t.y,t.x)); const w=.036*L,h=.044*L+(6-i)*.0018*L; ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); fillBone(); ctx.restore(); }
+        names('경추',lerp(base,B0,.5)); }
+      ctx.save(); ctx.translate(c.x,c.y); ctx.rotate(th); ctx.scale(R,R); ctx.lineJoin='round';
+      const lw=1.4*s/R; ctx.lineWidth=lw;
+      // 하악골 (뒤)
+      const jx=fx*.35; ctx.beginPath(); ctx.moveTo(-.74+jx,.34); ctx.bezierCurveTo(-.78+jx,.8,-.5+jx,1.05,fx*.9-.08,1.13); ctx.lineTo(fx*.9+.08,1.13);
+      ctx.bezierCurveTo(.5+jx,1.05,.78+jx,.8,.74+jx,.34); ctx.lineTo(.48+jx,.34); ctx.lineTo(.4+jx*.5,.78); ctx.lineTo(-.4+jx*.5,.78); ctx.lineTo(-.48+jx,.34); ctx.closePath();
+      ctx.fillStyle='#e6dcc4'; ctx.fill(); ctx.strokeStyle=EDGE; ctx.stroke();
+      // 두개골 본체
+      ctx.beginPath(); ctx.moveTo(-.97,.12); ctx.bezierCurveTo(-1.12,-.6,-.6,-1.12,0,-1.12); ctx.bezierCurveTo(.6,-1.12,1.12,-.6,.97,.12);
+      ctx.bezierCurveTo(.93,.34,.7,.5,.62,.66); ctx.bezierCurveTo(.5,.8,.3,.84,0,.84); ctx.bezierCurveTo(-.3,.84,-.5,.8,-.62,.66); ctx.bezierCurveTo(-.7,.5,-.93,.34,-.97,.12); ctx.closePath();
+      ctx.fillStyle=BONE; ctx.fill(); ctx.strokeStyle=EDGE; ctx.stroke();
+      // 봉합선 (관상·시상)
+      ctx.beginPath(); ctx.moveTo(-.9,-.12); ctx.bezierCurveTo(-.6,-.78,.6,-.78,.9,-.12); ctx.strokeStyle='rgba(60,45,25,.55)'; ctx.setLineDash([.05,.04]); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(fx*.2,-.45); ctx.lineTo(fx*.2*0,-1.08); ctx.stroke(); ctx.setLineDash([]);
+      // 안와 (눈구멍)
+      [-1,1].forEach(sd=>{ const near=(sd*yaw)>=0, sx=near?1-.12*ay:1-.65*ay; if(!near&&ay>.88) return;
+        const ex0=sd*.4*(1-.1*ay)+fx*.9; ctx.beginPath(); ctx.ellipse(ex0,.2,.27*sx,.22,0,0,7); ctx.fillStyle=DARK; ctx.fill(); ctx.strokeStyle=EDGE; ctx.lineWidth=lw*1.3; ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(ex0,.2,.27*sx+.04,.22+.04,0,Math.PI*.1,Math.PI*.9); ctx.lineWidth=lw; ctx.strokeStyle='rgba(255,252,240,.5)'; ctx.stroke(); ctx.lineWidth=lw; });
+      // 눈썹뼈 능선
+      [-1,1].forEach(sd=>{ const near=(sd*yaw)>=0; if(!near&&ay>.88) return; const bx=sd*.4*(1-.1*ay)+fx*.9, wd=.34*(1-.45*ay*(near?0:1));
+        ctx.beginPath(); ctx.moveTo(bx-wd,.02); ctx.quadraticCurveTo(bx,-.12,bx+wd,.0); ctx.strokeStyle='rgba(255,252,240,.6)'; ctx.lineWidth=lw*1.7; ctx.stroke(); });
+      // 측두선·귀구멍·유양돌기 (옆모습일 때)
+      if(ay>.4){ const ys=Math.sign(yaw);
+        ctx.beginPath(); ctx.moveTo(fx*.9*ys*.2+ys*.5,-.1); ctx.bezierCurveTo(ys*.3,-.55,-ys*.35,-.55,-ys*.7,-.05); ctx.strokeStyle='rgba(60,45,25,.5)'; ctx.lineWidth=lw; ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(-ys*.2*ay,.38,.07,.09,0,0,7); ctx.fillStyle=DARK; ctx.fill(); ctx.strokeStyle=EDGE; ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(-ys*.3*ay,.62,.07,.12,0,0,7); ctx.fillStyle=BONE; ctx.fill(); ctx.lineWidth=lw; ctx.strokeStyle=EDGE; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-ys*.2*ay,.2); ctx.lineTo(-ys*.55*ay,.74); ctx.strokeStyle='rgba(60,45,25,.45)'; ctx.stroke(); }
+      // 비강(코구멍) 역삼각 하트형
+      ctx.lineWidth=lw; const nx=fx*1.05; ctx.beginPath(); ctx.moveTo(nx-.07,.05); ctx.lineTo(nx-.06*(1-ay*.5),.33); ctx.moveTo(nx+.07,.05); ctx.lineTo(nx+.06*(1-ay*.5),.33); ctx.strokeStyle='rgba(60,45,25,.5)'; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(nx,.33); ctx.bezierCurveTo(nx-.14*(1-.4*ay),.45,nx-.16*(1-.4*ay),.62,nx-.05,.62); ctx.lineTo(nx+.05,.62); ctx.bezierCurveTo(nx+.16*(1-.4*ay),.62,nx+.14*(1-.4*ay),.45,nx,.33); ctx.closePath(); ctx.fillStyle=DARK; ctx.fill(); ctx.strokeStyle=EDGE; ctx.stroke();
+      // 광대뼈
+      ctx.lineWidth=lw; [-1,1].forEach(sd=>{ if((sd*yaw)<0&&ay>.7) return; ctx.beginPath(); ctx.moveTo(sd*.64*(1-.15*ay)+fx*.8,.38); ctx.quadraticCurveTo(sd*.55+fx*.8,.56,sd*.34+fx,.58); ctx.strokeStyle='rgba(60,45,25,.7)'; ctx.stroke(); });
+      // 치아 (위/아래)
+      const tw=.52*(1-.3*ay), tc=fx*1.05, tn=8;
+      [[.7,.1],[.78,.1]].forEach(([ty,th2],r)=>{ for(let i=0;i<tn;i++){ const x=tc-tw/2+(i+.5)*tw/tn; ctx.beginPath(); ctx.rect(x-tw/tn*.45,ty-(r?0:.0),tw/tn*.9,th2*.9); ctx.fillStyle='#fffaf0'; ctx.fill(); ctx.strokeStyle=EDGE; ctx.lineWidth=lw*.7; ctx.stroke(); } });
+      ctx.restore();
+      names('두개골',{x:c.x+up.x*R*.2,y:c.y+up.y*R*.2});
+    }
+  }
+
+  /* ----- 뼈 이름 ----- */
+  if(showName&&labels.length){
+    const seen=new Set(), cx=hasT?Hm.x:W/2; ctx.shadowBlur=0; ctx.shadowColor='transparent';
+    labels.forEach(([t,p])=>{ if(seen.has(t)) return; seen.add(t);
+      const sd=p.x>=cx?1:-1, ox=p.x+sd*Math.max(.36*L,40*s), oy=p.y;
+      ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(ox,oy); ctx.lineWidth=1.2*s; ctx.strokeStyle='rgba(255,230,160,.85)'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(p.x,p.y,2.6*s,0,7); ctx.fillStyle='#ffd23f'; ctx.fill();
+      ctx.textAlign=sd>0?'left':'right'; label(t,ox+sd*4*s,oy+4*s,'#ffe9a8',12*s); ctx.textAlign='left'; });
+  }
+  ctx.restore();
+}
+
+/* ---------- 체중 배분 (뒷발 : 앞발) ---------- */
+function weightSplit(q){
+  const feet=[0,1].filter(k=>q.ft[k]); if(!feet.length) return null;
+  if(feet.length===1) return {one:true};
+  const d=q.ref||gdir(), fk=q.ft[0].x*d>q.ft[1].x*d?0:1, rk=1-fk; // 앞·뒷발 기준은 지면반력과 동일
+  const fF=q.ft[fk].fy, fR=q.ft[rk].fy, den=(q.ft[fk].x-q.ft[rk].x)*d;
+  const t=den>.004?((q.cx-q.ft[rk].x)*d)/den:null;
+  let pF=fF+fR>.05?fF/(fF+fR):(t==null?.5:Math.max(0,Math.min(1,t)));
+  pF=Math.max(0,Math.min(1,pF));
+  return {pF,pR:1-pF};
+}
+function drawWeight(){
+  if(!gb||!track||!$('wtOn')||!$('wtOn').checked||!($('grfOn').checked||$('shiftOn').checked)) return;
+  const i=grfAt(), q=gb.f[i]; if(!q) return;
+  const W=cv.width,s=sc(), ws=weightSplit(q);
+  const bw=Math.min(W*.5,330*s), bh=20*s, pad=10*s, pw=bw+pad*2, ph=78*s, px=W-pw-12*s, py=12*s, bx=px+pad, by=py+34*s;
+  ctx.save(); hud();
+  rrect(px,py,pw,ph,10*s); ctx.fillStyle='rgba(0,0,0,.66)'; ctx.fill();
+  ctx.textBaseline='alphabetic'; ctx.font=`bold ${13*s}px sans-serif`; ctx.textAlign='left'; ctx.fillStyle='#ddd'; ctx.fillText('⚖ 체중 배분',px+pad,py+20*s);
+  ctx.fillStyle='rgba(255,255,255,.14)'; rrect(bx,by,bw,bh,5*s); ctx.fill();
+  let txt='', r=null;
+  if(!ws){ txt='🦘 공중 (지지 없음)'; }
+  else if(ws.one){ ctx.fillStyle=GC.hold; rrect(bx,by,bw,bh,5*s); ctx.fill(); txt='한 발 지지 · 100%'; }
+  else {
+    const wr=bw*ws.pR, wf=bw*ws.pF; r=Math.round(ws.pR*10);
+    if(wr>0){ ctx.fillStyle=GC.push; rrect(bx,by,wr,bh,5*s); ctx.fill(); }
+    if(wf>0){ ctx.fillStyle=GC.brake; rrect(bx+wr,by,wf,bh,5*s); ctx.fill(); }
+    ctx.fillStyle='#fff'; ctx.fillRect(bx+bw/2-1*s,by-3*s,2*s,bh+6*s); // 5:5 기준선
+    ctx.font=`bold ${13*s}px sans-serif`; ctx.textAlign='left'; ctx.fillStyle=GC.push; ctx.fillText(`뒷발 ${Math.round(ws.pR*100)}%`,bx,by+bh+16*s);
+    ctx.textAlign='right'; ctx.fillStyle=GC.brake; ctx.fillText(`앞발 ${Math.round(ws.pF*100)}%`,bx+bw,by+bh+16*s);
+    ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.fillText(`${r} : ${10-r}`,bx+bw/2,by+bh+16*s);
+  }
+  if(txt){ ctx.font=`bold ${13*s}px sans-serif`; ctx.textAlign='center'; ctx.fillStyle='#cfd6df'; ctx.fillText(txt,bx+bw/2,by+bh/2+5*s); }
+  ctx.restore();
+}
+
+/* ---------- 중심이동 ---------- */
+function drawShift(){
+  if(!gb||!track||!mpp||!$('shiftOn').checked) return;
+  const i=grfAt(), q=gb.f[i]; if(!q) return;
+  const W=cv.width,H=cv.height,s=sc(),d=gdir(),VW=video.videoWidth,VH=video.videoHeight;
+  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+  // 1) 최근 1.2초 무게중심 궤적 (빠를수록 붉게)
+  const n0=Math.max(0,i-Math.round(AFPS*1.2)); let prev=null, mv=0;
+  for(let j=n0;j<=i;j++){ const a=gb.f[j]; if(!a){prev=null;continue;}
+    if(prev){ const dxm=(a.cx-prev.cx)*VW*mpp, dym=(a.cy-prev.cy)*VH*mpp, v=Math.hypot(dxm,dym)*AFPS, qq=Math.min(1,v/3), age=(j-n0)/Math.max(1,i-n0);
+      mv+=dxm; ctx.strokeStyle=`hsla(${200-200*qq},100%,60%,${.2+.8*age})`; ctx.lineWidth=(3+qq*4)*s;
+      ctx.beginPath(); ctx.moveTo(prev.cx*W,prev.cy*H); ctx.lineTo(a.cx*W,a.cy*H); ctx.stroke(); }
+    prev=a; }
+  // 2) 바닥 투영 + 지지 범위
+  const feet=[0,1].filter(k=>q.ft[k]), cx=q.cx*W, cy=q.cy*H;
+  let lines=[], flag=null;
+  const vxd=(q.vx||0)*d;
+  if(feet.length){
+    const floorY=Math.max(...feet.map(k=>q.ft[k].y))*H;
+    ctx.setLineDash([6*s,6*s]); ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=2*s; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx,floorY); ctx.stroke(); ctx.setLineDash([]);
+    let inside=true, mk=cx;
+    if(feet.length===2){
+      const fd=q.ref||d, by=Math.min(H-60*s,floorY+14*s), gh=24*s; // 앞·뒷발은 지면반력과 같은 기준(진행 방향)
+      const frontK=q.ft[0].x*fd>q.ft[1].x*fd?0:1, rearK=1-frontK;
+      const den=(q.ft[frontK].x-q.ft[rearK].x)*W*fd, t=den>4*s?((q.cx*W-q.ft[rearK].x*W)*fd)/den:null;
+      inside=t==null||(t>=-.05&&t<=1.05); mk=cx;
+      const fF=q.ft[frontK].fy, fR=q.ft[rearK].fy; let pF=fF+fR>.05?fF/(fF+fR):(t==null?.5:Math.max(0,Math.min(1,t)));
+      pF=Math.max(0,Math.min(1,pF)); const pR=1-pF;
+      lines.push(`체중 앞발 ${Math.round(pF*100)}% · 뒷발 ${Math.round(pR*100)}%`);
+      if(t!=null) lines.push(t<.4?'중심이 뒷발 쪽':t>.6?'중심이 앞발 쪽':'중심이 두 발 가운데');
+      // 체중 게이지: 뒷발 끝에서 주황, 앞발 끝에서 파랑이 체중만큼 채워지고 5:5면 정확히 가운데서 만나요
+      const xr=q.ft[rearK].x*W, xf=q.ft[frontK].x*W, mid=(xr+xf)/2, half=Math.max(Math.abs(xf-xr)/2,70*s), sg=xf>=xr?1:-1;
+      const g0=mid-sg*half, g1=mid+sg*half, bx=g0+(g1-g0)*pR, gl=Math.min(g0,g1), gw=Math.abs(g1-g0);
+      ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(gl-3*s,by-3*s,gw+6*s,gh+6*s);
+      ctx.fillStyle='#ff9f43'; ctx.fillRect(Math.min(g0,bx),by,Math.abs(bx-g0),gh);
+      ctx.fillStyle='#3ec6ff'; ctx.fillRect(Math.min(bx,g1),by,Math.abs(g1-bx),gh);
+      ctx.strokeStyle='#fff'; ctx.lineWidth=2*s; ctx.strokeRect(gl,by,gw,gh);
+      ctx.lineWidth=3*s; ctx.beginPath(); ctx.moveTo(bx,by-5*s); ctx.lineTo(bx,by+gh+5*s); ctx.stroke(); // 두 색이 만나는 선
+      const r=Math.round(pR*10), lv=sg>0?r:10-r; // 숫자는 화면 왼쪽 색부터 (왼쪽 : 오른쪽)
+      ctx.textAlign='center'; ctx.textBaseline='middle'; label(`${lv} : ${10-lv}`,mid,by+gh/2+1*s,'#ffffff',17*s); ctx.textBaseline='alphabetic';
+      label(`뒷발 ${Math.round(pR*100)}%`,g0,by+gh+20*s,'#ff9f43',13*s); label(`앞발 ${Math.round(pF*100)}%`,g1,by+gh+20*s,'#3ec6ff',13*s);
+    } else {
+      const f=q.ft[feet[0]], off=(q.cx-f.x)*VW*mpp*100*d;
+      lines.push(`한 발 지지 · 중심이 발보다 ${Math.abs(off).toFixed(0)}cm ${off>=0?'앞':'뒤'}`);
+      inside=Math.abs(off)<18; mk=cx;
+    }
+    const col=inside?'#ffd23f':'#ff6b6b';
+    ctx.fillStyle=col; ctx.strokeStyle='#000'; ctx.lineWidth=2*s; ctx.beginPath(); ctx.moveTo(mk,floorY-2*s); ctx.lineTo(mk-9*s,floorY-18*s); ctx.lineTo(mk+9*s,floorY-18*s); ctx.closePath(); ctx.fill(); ctx.stroke();
+    if(!inside) lines.push('⚠ 중심이 발 밖으로 나갔어요 (이동·불안정)');
+  } else lines.push('🦘 공중 (지지 없음)');
+  // 무게중심 점
+  ctx.shadowColor='rgba(0,0,0,.8)'; ctx.shadowBlur=6*s; ctx.fillStyle='#ffd23f'; ctx.beginPath(); ctx.arc(cx,cy,8*s,0,7); ctx.fill(); ctx.shadowBlur=0;
+  lines.unshift(`중심 속도 ${Math.abs(vxd).toFixed(1)}m/s ${vxd>=0?'앞으로':'뒤로'} · 최근 1초 ${Math.abs(mv*d*100).toFixed(0)}cm ${mv*d>=0?'앞':'뒤'}`);
+  // HUD (왼쪽 위)
+  ctx.save(); hud(); ctx.font=`bold ${14*s}px sans-serif`; ctx.textAlign='left';
+  const w=Math.max(...lines.map(t=>ctx.measureText(t).width))+20*s, hh=lines.length*20*s+10*s, x0=12*s, y0=12*s;
+  ctx.fillStyle='rgba(0,0,0,.62)'; ctx.beginPath(); ctx.roundRect?ctx.roundRect(x0,y0,w,hh,10*s):ctx.rect(x0,y0,w,hh); ctx.fill();
+  ctx.fillStyle='#fff'; lines.forEach((t,j)=>ctx.fillText(t,x0+10*s,y0+22*s+j*20*s)); ctx.restore();
+  ctx.restore();
+}
+
+/* ---------- 궤적 ---------- */
+function drawTrails(){
+  if(!track||!trailSel.size) return;
+  const s=sc(),W=cv.width,H=cv.height,t=vtime(),L=parseFloat($('trailLen').value);
+  const i1=Math.min(track.length-1,Math.floor(t*AFPS+1e-6)), i0=L>=99?0:Math.max(0,i1-Math.round(L*AFPS));
+  TJ.forEach(j=>{
+    if(!trailSel.has(j.k)) return; const st=jstats[j.k]; if(!st) return;
+    ctx.save(); ctx.lineCap='round';
+    let bv=0,bp=null,hy=1e9,hp=null;
+    for(let i=i0+1;i<=i1;i++){
+      const a=track[i-1].lm,b=track[i].lm; if(!a||!b) continue;
+      const pa=a[j.i],pb=b[j.i]; if(pa.visibility<.3||pb.visibility<.3) continue;
+      const age=i1>i0?(i1-i)/(i1-i0):0, v=st.speed[i], q=st.max?Math.min(1,v/st.max):0;
+      const col=`hsla(${200-200*q},100%,${55+q*10}%,${1-age*.8})`;
+      ctx.strokeStyle=col; ctx.shadowColor=col; ctx.shadowBlur=q*14*s; ctx.lineWidth=(2.5+q*7)*s;
+      ctx.beginPath(); ctx.moveTo(pa.x*W,pa.y*H); ctx.lineTo(pb.x*W,pb.y*H); ctx.stroke();
+      if(v>bv){bv=v;bp=pb} if(pb.y<hy){hy=pb.y;hp=pb}
+    }
+    ctx.shadowBlur=0;
+    const cur=poseAt(track,t);
+    if(cur&&cur[j.i].visibility>.3){
+      ctx.beginPath(); ctx.arc(cur[j.i].x*W,cur[j.i].y*H,7*s,0,7); ctx.fillStyle=j.c; ctx.fill();
+      ctx.lineWidth=2*s; ctx.strokeStyle='#fff'; ctx.stroke();
+    }
+    if(bp&&mpp&&bv>st.max*0.25) label(`${(bv*mpp).toFixed(1)} m/s`,bp.x*W+12*s,bp.y*H-12*s,'#fff',22*s);
+    if(j.foot&&hp&&mpp&&floorY!=null){
+      const cm=(floorY-hy*H)*mpp*100;
+      if(cm>20) label(`▲ ${Math.round(cm)}cm`,hp.x*W-30*s,hp.y*H-36*s,'#ffd23f',22*s);
+    }
+    ctx.restore();
+  });
+}
+
+/* ---------- 사범 비교 그리기 ---------- */
+function teacherTime(t){
+  if(!cmp) return t;
+  const n=cmp.map.length, f=t*AFPS, i=Math.max(0,Math.min(n-1,Math.floor(f))), j=Math.min(n-1,i+1), w=Math.max(0,Math.min(1,f-i));
+  return (cmp.map[i]+(cmp.map[j]-cmp.map[i])*w)/AFPS;
+}
+function teacherPose(t){
+  let l=poseAt(tTrack,teacherTime(t)); if(!l) return null;
+  if(cmp.swap) l=SWP.map(i=>l[i]);
+  if(cmp.flip) l=l.map(p=>({x:1-p.x,y:p.y,visibility:p.visibility}));
+  return l;
+}
+function anchor(l,w,h){
+  if([11,12,23,24].some(i=>l[i].visibility<.4)) return null;
+  const hx=(l[23].x+l[24].x)/2*w,hy=(l[23].y+l[24].y)/2*h,sx=(l[11].x+l[12].x)/2*w,sy=(l[11].y+l[12].y)/2*h;
+  return {hx,hy,L:Math.hypot(sx-hx,sy-hy)};
+}
+function drawGhost(){
+  if(!cmp||!$('ghost').checked||!pose) return;
+  const tp=teacherPose(vtime()); if(!tp) return;
+  const W=cv.width,H=cv.height,TW=tv.videoWidth,TH=tv.videoHeight;
+  const A=anchor(pose,W,H),B=anchor(tp,TW,TH); if(!A||!B||!B.L) return;
+  const k=A.L/B.L, s=sc();
+  const P=tp.map(p=>({x:(p.x*TW-B.hx)*k+A.hx,y:(p.y*TH-B.hy)*k+A.hy,v:p.visibility}));
+  ctx.save(); ctx.lineCap='round'; ctx.strokeStyle='rgba(255,159,28,.85)'; ctx.lineWidth=6*s;
+  ctx.shadowColor='rgba(255,159,28,.8)'; ctx.shadowBlur=10*s;
+  LINKS.forEach(([i,j])=>{const a=P[i],b=P[j]; if(a.v<.4||b.v<.4) return;
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();});
+  ctx.shadowBlur=0; ctx.fillStyle='#ff9f1c';
+  P.forEach((p,i)=>{if(i<11||p.v<.4)return; ctx.beginPath(); ctx.arc(p.x,p.y,4*s,0,7); ctx.fill();});
+  if(P[0].v>.4) label('사범',P[0].x-22*s,P[0].y-26*s,'#ff9f1c',20*s);
+  ctx.restore();
+}
+function drawScore(){
+  if(!cmp||!$('scoreOn').checked) return;
+  const v=cmp.fs[curIdx(vtime())]; if(!(v>=0)) return;
+  const s=sc(), txt=`일치도 ${Math.round(v)}%`;
+  ctx.save(); ctx.font=`900 ${30*s}px sans-serif`;
+  const w=ctx.measureText(txt).width+28*s;
+  ctx.fillStyle='rgba(0,0,0,.65)'; ctx.beginPath(); ctx.roundRect?ctx.roundRect(12*s,12*s,w,48*s,12*s):ctx.rect(12*s,12*s,w,48*s); ctx.fill();
+  ctx.fillStyle='#26303c'; ctx.fillRect(12*s,56*s,w,4*s); ctx.fillStyle=scoreCol(v); ctx.fillRect(12*s,56*s,w*v/100,4*s);
+  ctx.fillText(txt,26*s,47*s);
+  ctx.restore();
+}
+function drawPip(){
+  if(!cmp||!$('pip').checked||tv.readyState<2) return;
+  const tt=teacherTime(vtime());
+  if(!tv.seeking&&Math.abs(tv.currentTime-tt)>0.03) tv.currentTime=tt;
+  const s=sc(),W=cv.width,H=cv.height;
+  let pw=W*0.3, ph=pw*tv.videoHeight/tv.videoWidth;
+  if(ph>H*0.42){ph=H*0.42;pw=ph*tv.videoWidth/tv.videoHeight}
+  const x=W-pw-12*s, y=H-ph-12*s;
+  ctx.save();
+  if(cmp.flip){ctx.translate(x+pw,y);ctx.scale(-1,1);ctx.drawImage(tv,0,0,pw,ph)}
+  else ctx.drawImage(tv,x,y,pw,ph);
+  ctx.restore(); ctx.save();
+  ctx.lineWidth=3*s; ctx.strokeStyle='#ff9f1c'; ctx.strokeRect(x,y,pw,ph);
+  label('사범 시범',x+8*s,y+24*s,'#ff9f1c',18*s);
+  ctx.restore();
+}
+
+function paintOverlays(){
+  if(track) pose=poseAt(track,vtime());
+  drawSkelDim(); drawTrails(); drawGhost(); drawSkeleton(); drawPose(); drawForce(); drawGRF(); drawShift(); drawWeight(); drawCoachMark(); ctx.save(); hud(); drawPip(); drawScore(); ctx.restore();
+  anns.filter(a=>vis(a)).forEach(drawAnn);
+}
+function render(){
+  if(!cv.width) return;
+  applyStabView();
+  ctx.clearRect(0,0,cv.width,cv.height);
+  paintOverlays();
+  if(draft) drawAnn(draft);
+  if(selId!=null){ const a=anns.find(x=>x.id===selId); if(a&&vis(a)) drawSel(a); }
+  if(jdrag&&pose&&pose[jdrag.k]){ const q=pose[jdrag.k],s=sc(); ctx.save(); ctx.beginPath(); ctx.arc(q.x*cv.width,q.y*cv.height,16*s,0,7);
+    ctx.lineWidth=4*s; ctx.strokeStyle='#ffd23f'; ctx.shadowColor='#000'; ctx.shadowBlur=8*s; ctx.stroke(); ctx.restore(); }
+  if(tool==='angle'&&angPts.length){ // 진행 중 각도기 미리보기
+    ctx.save(); ctx.strokeStyle=$('color').value; ctx.fillStyle=$('color').value; ctx.lineWidth=3*sc();
+    ctx.beginPath(); angPts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+    angPts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,6*sc(),0,7);ctx.fill()}); ctx.restore();
+  }
+}
+
+/* ---------- 1€ 필터: 느린 움직임(떨림)은 강하게, 빠른 움직임은 그대로 ---------- */
+const EURO={minC:0.4,beta:1.2,dC:1.0};
+const euroA=(c,dt)=>1/(1+1/(2*Math.PI*c*dt));
+function euroStep(st,x,y,dt){ // 좌표 단위: 몸통 길이
+  if(!st) return {x,y,vx:0,vy:0};
+  const ad=euroA(EURO.dC,dt), vx=st.vx+ad*((x-st.x)/dt-st.vx), vy=st.vy+ad*((y-st.y)/dt-st.vy);
+  const a=euroA(EURO.minC+EURO.beta*Math.hypot(vx,vy),dt);
+  return {x:st.x+a*(x-st.x),y:st.y+a*(y-st.y),vx,vy};
+}
+let lf=null,lfT=null,lfL=1,lfOut=null;
+function liveFilter(r,rw){ // 분석 전 실시간 표시용 (rw = AI가 추정한 3D 좌표, 미터)
+  if(!r) return r;
+  const W=video.videoWidth,H=video.videoHeight,t=vtime();
+  if(lf&&lfOut&&Math.abs(t-lfT)<1e-4) return lfOut; // 같은 장면이면 이전 결과 그대로
+  if(!lf||lfT==null||t<lfT||t-lfT>0.4){ const A=anchor(r.map(p=>({...p,visibility:p.visibility??1})),W,H); lfL=(A&&A.L)||H*.15; lf=null; }
+  const dt=lf?t-lfT:1/30; lfT=t;
+  const out=r.map((p,k)=>{ const st=euroStep(lf&&lf[k],p.x*W/lfL,p.y*H/lfL,Math.max(dt,1/240)); return st; });
+  lf=out;
+  return lfOut=out.map((st,k)=>{ const w=rw&&rw[k]; return {x:st.x*lfL/W,y:st.y*lfL/H,visibility:r[k].visibility??1,wx:w?w.x:undefined,wy:w?w.y:undefined,wz:w?w.z:undefined}; });
+}
+
+/* ---------- 관절 다듬기 (튐·좌우 뒤바뀜·뼈 길이 이상 → 보정) ---------- */
+function cleanTrack(tr,W,H){
+  const n=tr.length;
+  const F=tr.map(f=>f.lm?f.lm.map(p=>({x:p.x*W,y:p.y*H,v:p.visibility??1,wx:p.wx,wy:p.wy,wz:p.wz})):null);
+  const Ls=[]; F.forEach(l=>{ if(!l||[11,12,23,24].some(i=>l[i].v<.4)) return;
+    Ls.push(Math.hypot((l[11].x+l[12].x-l[23].x-l[24].x)/2,(l[11].y+l[12].y-l[23].y-l[24].y)/2)); });
+  const L=med(Ls)||Math.min(W,H)*0.15;
+  let fixed=0;
+  // 1) 왼쪽·오른쪽 다리/팔이 한 장면만 뒤바뀌는 것 바로잡기
+  const GR=[[[25,26],[27,28],[29,30],[31,32]],[[13,14],[15,16],[17,18],[19,20],[21,22]]];
+  let prev=null;
+  for(let i=0;i<n;i++){ const l=F[i]; if(!l) continue;
+    if(prev) GR.forEach(g=>{ let d0=0,d1=0;
+      g.forEach(([a,b])=>{ d0+=Math.hypot(l[a].x-prev[a].x,l[a].y-prev[a].y)+Math.hypot(l[b].x-prev[b].x,l[b].y-prev[b].y);
+                          d1+=Math.hypot(l[a].x-prev[b].x,l[a].y-prev[b].y)+Math.hypot(l[b].x-prev[a].x,l[b].y-prev[a].y); });
+      if(d1<d0*0.55&&d0>L*0.6){ g.forEach(([a,b])=>{const t=l[a];l[a]=l[b];l[b]=t}); fixed++; } });
+    prev=l; }
+  // 2) 한 장면만 튀는 점
+  const bad=Array.from({length:n},()=>new Uint8Array(33));
+  for(let i=1;i<n-1;i++){ const a=F[i-1],l=F[i],b=F[i+1]; if(!a||!l||!b) continue;
+    for(let k=11;k<33;k++){ const px=(a[k].x+b[k].x)/2,py=(a[k].y+b[k].y)/2;
+      const dev=Math.hypot(l[k].x-px,l[k].y-py), span=Math.hypot(a[k].x-b[k].x,a[k].y-b[k].y);
+      if(dev>0.8*L&&dev>span) bad[i][k]=1;
+      const nb=[F[i-2],a,b,F[i+2]].filter(Boolean).map(m=>m[k]);
+      if(nb.length>=3){ const mx=med(nb.map(q=>q.x)), my=med(nb.map(q=>q.y)), d=Math.hypot(l[k].x-mx,l[k].y-my);
+        const sp=Math.max(...nb.map(q=>Math.hypot(q.x-mx,q.y-my)));
+        if(d>0.45*L&&d>1.8*sp) bad[i][k]=1; } } }
+  // 3) 뼈가 갑자기 길어지는 장면 (발 모양 틀어짐의 주원인)
+  const BONES=[[23,25],[25,27],[24,26],[26,28],[27,29],[29,31],[27,31],[28,30],[30,32],[28,32],[11,13],[13,15],[12,14],[14,16]];
+  BONES.forEach(([p,q])=>{ const ls=[]; F.forEach(l=>{ if(l&&l[p].v>.5&&l[q].v>.5) ls.push(Math.hypot(l[p].x-l[q].x,l[p].y-l[q].y)); });
+    const m=med(ls); if(!m) return; const lim=(q>=29?1.9:1.45)*m;
+    F.forEach((l,i)=>{ if(l&&Math.hypot(l[p].x-l[q].x,l[p].y-l[q].y)>lim) bad[i][q]=1; }); });
+  bad.forEach(b=>b.forEach(x=>{if(x)fixed++}));
+  // 4) 틀린 점은 앞뒤 장면으로 메우기
+  const ok=(i,k)=>F[i]&&!bad[i][k]&&F[i][k].v>=.3;
+  for(let k=11;k<33;k++){ let i=0;
+    while(i<n){ if(ok(i,k)){i++;continue}
+      let j=i; while(j<n&&!ok(j,k)) j++;
+      const A=i-1,B=j;
+      if(A>=0&&B<n&&B-A-1<=8){ const pa=F[A][k],pb=F[B][k];
+        for(let q=i;q<j;q++){ if(!F[q]) continue; const w=(q-A)/(B-A); F[q][k]={x:pa.x+(pb.x-pa.x)*w,y:pa.y+(pb.y-pa.y)*w,v:Math.min(pa.v,pb.v)*.9,wx:pa.wx!=null&&pb.wx!=null?pa.wx+(pb.wx-pa.wx)*w:undefined,wy:pa.wx!=null&&pb.wx!=null?pa.wy+(pb.wy-pa.wy)*w:undefined,wz:pa.wx!=null&&pb.wx!=null?pa.wz+(pb.wz-pa.wz)*w:undefined}; } }
+      else for(let q=i;q<j;q++) if(F[q]&&bad[q][k]) F[q][k].v=Math.min(F[q][k].v,.2);
+      i=j; } }
+  // 5) 떨림 제거: 멈춰 있을 땐 강하게, 빠른 발차기엔 거의 손대지 않는 필터(1€)를 앞→뒤, 뒤→앞 한 번씩
+  const fps=tr.fps||AFPS, S=F.map(l=>l&&l.map(p=>({...p})));
+  const run=idx=>{ const res=new Map();
+    for(let k=0;k<33;k++){ let st=null;
+      for(const i of idx){ const l=F[i]; if(!l){st=null;continue}
+        const x=l[k].x/L,y=l[k].y/L; st=euroStep(st,x,y,1/fps); res.set(i*33+k,{x:st.x*L,y:st.y*L}); } }
+    return res; };
+  const idx=[...Array(n).keys()], fw=run(idx), bw=run(idx.slice().reverse());
+  for(let i=0;i<n;i++){ if(!F[i]) continue;
+    for(let k=0;k<33;k++){ const a=fw.get(i*33+k), b=bw.get(i*33+k); S[i][k].x=(a.x+b.x)/2; S[i][k].y=(a.y+b.y)/2; } }
+  // 3D 좌표 떨림 제거: 앞뒤 2장면씩 가중 평균 (각도 숫자가 덜 흔들리게)
+  const GW=[1,2,3,2,1];
+  const W3=F.map((l,i)=>l&&l.map((p,k)=>{ if(p.wx==null) return null; let sx=0,sy=0,sz=0,sw=0;
+    for(let d=-2;d<=2;d++){ const q=F[i+d]&&F[i+d][k]; if(q&&q.wx!=null){ const w=GW[d+2]; sx+=q.wx*w; sy+=q.wy*w; sz+=q.wz*w; sw+=w; } }
+    return sw?{wx:sx/sw,wy:sy/sw,wz:sz/sw}:null; }));
+  const out=S.map((l,i)=>({t:tr[i].t,lm:l?l.map((p,k)=>{ const w=W3[i]&&W3[i][k]; return {x:p.x/W,y:p.y/H,visibility:p.v,wx:w?w.wx:undefined,wy:w?w.wy:undefined,wz:w?w.wz:undefined}; }):null}));
+  out.fps=tr.fps; out.kind=tr.kind; out.fixed=fixed;
+  return out;
+}
+
+/* ---------- 기울어진 자세: 몸이 똑바로 서도록 화면을 돌려 한 번 더 인식 ---------- */
+let rcv=null,rctx=null;
+function rotCrop(el,l){
+  const W=el.videoWidth,H=el.videoHeight;
+  if([11,12,23,24].some(i=>(l[i].visibility??1)<.3)) return null;
+  const hx=(l[23].x+l[24].x)/2*W, hy=(l[23].y+l[24].y)/2*H, sx=(l[11].x+l[12].x)/2*W, sy=(l[11].y+l[12].y)/2*H;
+  const th=Math.atan2(sx-hx,-(sy-hy)); if(Math.abs(th)<0.55) return null; // 32° 이상 기울었을 때만
+  const L=Math.hypot(sx-hx,sy-hy); if(L<8) return null;
+  const S=384, size=L*5.2, k=S/size;
+  if(!rcv){ rcv=document.createElement('canvas'); rcv.width=rcv.height=S; rctx=rcv.getContext('2d'); }
+  rctx.setTransform(1,0,0,1,0,0); rctx.fillStyle='#000'; rctx.fillRect(0,0,S,S);
+  rctx.translate(S/2,S/2); rctx.scale(k,k); rctx.rotate(-th); rctx.translate(-hx,-hy); rctx.drawImage(el,0,0,W,H);
+  rctx.setTransform(1,0,0,1,0,0);
+  return {th,k,cx:hx,cy:hy,S};
+}
+function unrot(res,g,W,H,rw){
+  const c=Math.cos(g.th), s=Math.sin(g.th);
+  return res.map((p,k)=>{ const qx=(p.x*g.S-g.S/2)/g.k, qy=(p.y*g.S-g.S/2)/g.k, w=rw&&rw[k];
+    return {x:(g.cx+qx*c-qy*s)/W, y:(g.cy+qx*s+qy*c)/H, visibility:p.visibility??1,
+      wx:w?w.x*c-w.y*s:undefined, wy:w?w.x*s+w.y*c:undefined, wz:w?w.z:undefined}; }); // 3D도 화면 돌린 만큼 되돌림
+}
+function pickBest(out,W,H){ // 장면마다 후보 중, 앞뒤 장면과 가장 자연스럽게 이어지는 것 고르기
+  const Ls=[]; out.forEach(f=>{ const c=f.cands&&f.cands[0]; if(c){ const A=anchor(c,W,H); if(A&&A.L) Ls.push(A.L); } });
+  const L=med(Ls)||Math.min(W,H)*.15;
+  const un=c=>{ let v=0; for(let k=23;k<33;k++) v+=c[k].visibility; return 1.2*(1-v/10); };
+  const pr=(a,b)=>{ let d=0; for(let k=11;k<33;k++) d+=Math.hypot((a[k].x-b[k].x)*W,(a[k].y-b[k].y)*H); return d/22/L; };
+  let picked=0, seg=[];
+  const flush=()=>{ if(!seg.length) return;
+    const cost=[seg[0].cands.map(un)], bp=[seg[0].cands.map(()=>0)];
+    for(let q=1;q<seg.length;q++){ const C=seg[q].cands, P=seg[q-1].cands, pc=cost[q-1];
+      cost.push(C.map(c=>{ let b=1e9; P.forEach((p,j)=>{ const v=pc[j]+pr(p,c); if(v<b) b=v; }); return b+un(c); }));
+      bp.push(C.map(c=>{ let b=1e9,bi=0; P.forEach((p,j)=>{ const v=pc[j]+pr(p,c); if(v<b){b=v;bi=j} }); return bi; })); }
+    let q=seg.length-1, j=cost[q].indexOf(Math.min(...cost[q]));
+    for(;q>=0;q--){ seg[q].lm=seg[q].cands[j]; if(j>0) picked++; j=bp[q][j]; }
+    seg=[]; };
+  out.forEach(f=>{ if(f.cands&&f.cands.length) seg.push(f); else flush(); delete f._; });
+  flush();
+  out.forEach(f=>{ delete f.cands; });
+  return picked;
+}
+
+/* ---------- 화면 흔들림 보정 ---------- */
+let gcv=null,gctx=null;
+function grabGray(el){
+  const w=128,h=Math.max(16,Math.round(w*el.videoHeight/el.videoWidth));
+  if(!gcv) gcv=document.createElement('canvas');
+  if(gcv.width!==w||gcv.height!==h){gcv.width=w;gcv.height=h;gctx=null}
+  if(!gctx) gctx=gcv.getContext('2d',{willReadFrequently:true});
+  gctx.drawImage(el,0,0,w,h);
+  let d; try{ d=gctx.getImageData(0,0,w,h).data; }catch(e){ return null; }
+  const g=new Float32Array(w*h); let s=0;
+  for(let i=0;i<w*h;i++){ const v=d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114; g[i]=v; s+=v; }
+  s/=w*h; for(let i=0;i<w*h;i++) g[i]-=s;
+  return {g,w,h};
+}
+function boxOf(r,w,h){ // 사람 영역(배경 계산에서 빼기)
+  if(!r) return null; let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  r.forEach(p=>{ if((p.visibility??1)<.2) return; x0=Math.min(x0,p.x);y0=Math.min(y0,p.y);x1=Math.max(x1,p.x);y1=Math.max(y1,p.y); });
+  if(x0>x1) return null; const mx=(x1-x0)*.2+.04, my=(y1-y0)*.12+.04;
+  return {x0:Math.max(0,Math.floor((x0-mx)*w)),x1:Math.min(w-1,Math.ceil((x1+mx)*w)),y0:Math.max(0,Math.floor((y0-my)*h)),y1:Math.min(h-1,Math.ceil((y1+my)*h))};
+}
+function estShift(A,B,boxes){
+  const w=A.w,h=A.h,R=8,N=2*R+1,m=new Uint8Array(w*h);
+  boxes.forEach(b=>{ if(!b) return; for(let y=b.y0;y<=b.y1;y++) m.fill(1,y*w+b.x0,y*w+b.x1+1); });
+  const C=new Float64Array(N*N); let best=1e18,bx=0,by=0;
+  for(let dy=-R;dy<=R;dy++) for(let dx=-R;dx<=R;dx++){
+    let s=0,c=0;
+    for(let y=R;y<h-R;y+=2){ const row=y*w, row2=(y+dy)*w+dx;
+      for(let x=R;x<w-R;x+=2){ const i=row+x; if(m[i]||m[row2+x]) continue; s+=Math.abs(B.g[row2+x]-A.g[i]); c++; } }
+    const v=c>150?s/c:1e9; C[(dy+R)*N+dx+R]=v; if(v<best){best=v;bx=dx;by=dy} }
+  if(best>=1e9) return {x:0,y:0};
+  const srt=Array.from(C).filter(v=>v<1e9).sort((a,b)=>a-b), mid=srt[srt.length>>1];
+  if(!(mid>best*1.25)) return {x:0,y:0}; // 배경 무늬가 없어 확실하지 않음
+  const at=(x,y)=>C[(y+R)*N+x+R]; let sx=bx,sy=by;
+  if(Math.abs(bx)<R){const l=at(bx-1,by),r=at(bx+1,by),den=l-2*best+r; if(den>0) sx+=0.5*(l-r)/den}
+  if(Math.abs(by)<R){const u=at(bx,by-1),dn=at(bx,by+1),den=u-2*best+dn; if(den>0) sy+=0.5*(u-dn)/den}
+  return {x:sx,y:sy};
+}
+function computeCorr(cam){
+  corr=null; stabZoom=1; if(!cam||cam.length<3) return;
+  const n=cam.length, W=video.videoWidth, H=video.videoHeight, sig=Math.max(1.5,0.15*AFPS), R=Math.ceil(3*sig);
+  const sm=cam.map((_,i)=>{ let sx=0,sy=0,sw=0;
+    for(let d=-R;d<=R;d++){ const j=i+d; if(j<0||j>=n) continue; const w=Math.exp(-d*d/(2*sig*sig)); sx+=cam[j].x*w; sy+=cam[j].y*w; sw+=w; }
+    return {x:sx/sw,y:sy/sw}; });
+  const cl=(v,m)=>Math.max(-m,Math.min(m,v));
+  const raw=cam.map((o,i)=>({x:o.x-sm[i].x,y:o.y-sm[i].y}));
+  corr=raw.map((c,i)=>{ const a=raw[i-1]||c,b=raw[i+1]||c; return {x:cl((a.x+2*c.x+b.x)/4,.06*W),y:cl((a.y+2*c.y+b.y)/4,.06*H)}; }); // 계산 잡음 제거
+  let mx=0,my=0; corr.forEach(c=>{mx=Math.max(mx,Math.abs(c.x)/W);my=Math.max(my,Math.abs(c.y)/H)});
+  stabZoom=Math.min(1.15,1+2*Math.max(mx,my)+0.01);
+}
+function rebuildTrack(quick){
+  if(!trackClean){track=null;return}
+  const W=video.videoWidth,H=video.videoHeight,on=$('stab').checked&&corr;
+  track=trackClean.map((f,i)=>{ if(!f.lm||!on) return f; const c=corr[Math.min(i,corr.length-1)];
+    return {t:f.t,lm:f.lm.map(p=>({...p,x:p.x-c.x/W,y:p.y-c.y/H}))}; });
+  if(quick) return;
+  rebuildViews();
+  calcStats(); refreshTrStats(); computeKin(); refreshForceRep();
+}
+function startJoint(p){
+  if(!trackClean){ alert('먼저 [⚡ 동작 정밀 분석]을 눌러 주세요. 분석된 관절만 고칠 수 있어요.'); return; }
+  const i=Math.max(0,Math.min(trackClean.length-1,Math.round(video.currentTime*AFPS)));
+  if(Math.abs(video.currentTime-i/AFPS)>1e-3) video.currentTime=i/AFPS;
+  const P=track[i]&&track[i].lm; if(!P){ $('hint').textContent='이 장면에는 인식된 사람이 없어요.'; return; }
+  const r=cv.getBoundingClientRect(), thr=36*cv.width/r.width; let best=-1,bd=thr;
+  P.forEach((q,k)=>{ if(k>0&&k<11) return; const d=Math.hypot(q.x*cv.width-p.x,q.y*cv.height-p.y); if(d<bd){bd=d;best=k} });
+  if(best<0){ $('hint').textContent='관절 점(초록 동그라미) 가까이를 눌러서 끌어 주세요.'; return; }
+  const N=4, orig={};
+  for(let j=i-N;j<=i+N;j++){ const f=trackClean[j]; if(f&&f.lm) orig[j]={...f.lm[best]}; }
+  jdrag={k:best,i,N,orig,p0:{x:P[best].x*cv.width,y:P[best].y*cv.height}};
+  render();
+}
+function moveJoint(p){
+  const J=jdrag, dx=(p.x-J.p0.x)/cv.width, dy=(p.y-J.p0.y)/cv.height;
+  for(const js in J.orig){ const j=+js, w=1-Math.abs(j-J.i)/(J.N+1), o=J.orig[j];
+    trackClean[j].lm[J.k]={x:o.x+dx*w,y:o.y+dy*w,visibility:Math.max(o.visibility,.95)}; }
+  rebuildTrack(true); render();
+}
+function endJoint(){
+  jdrag=null; rebuildTrack();
+  if(cmp&&tTrack){ cmp=compare(); showReport(); }
+  $('hint').textContent='✔ 고쳤어요. 앞뒤 장면도 같이 맞춰졌어요. 다른 장면도 같은 방법으로 고치면 돼요.';
+  render();
+}
+function stabState(){
+  if(!corr||!$('stab').checked) return {cx:0,cy:0,z:1};
+  const n=corr.length,f=vtime()*AFPS,i=Math.max(0,Math.min(n-1,Math.floor(f))),j=Math.min(n-1,i+1),w=Math.max(0,Math.min(1,f-i));
+  return {cx:corr[i].x+(corr[j].x-corr[i].x)*w,cy:corr[i].y+(corr[j].y-corr[i].y)*w,z:stabZoom};
+}
+function applyStabView(){
+  const S=stabState(), k=stage.clientWidth/(video.videoWidth||1);
+  const vt=S.z===1?'':`scale(${S.z}) translate(${(-S.cx*k).toFixed(2)}px,${(-S.cy*k).toFixed(2)}px)`, ct=S.z===1?'':`scale(${S.z})`;
+  if(video.style.transform!==vt) video.style.transform=vt;
+  if(cv.style.transform!==ct) cv.style.transform=ct;
+}
+function hud(){ const z=stabState().z; if(z!==1) ctx.transform(1/z,0,0,1/z,cv.width/2*(1-1/z),cv.height/2*(1-1/z)); } // 점수판 등은 확대 안 함
+$('stab').onchange=()=>{ if(trackClean) rebuildTrack(); render(); };
+$('qual').onchange=()=>{ if(trackRaw) $('stabInfo').textContent='정밀도가 바뀌었어요. [⚡ 동작 정밀 분석]을 다시 누르면 적용돼요.'; };
+
+/* ---------- 여러 사람이 있을 때: 먼저 고르기 ---------- */
+function descOf(lm,W,H){ // 사람 한 명의 위치·크기 요약
+  let x0=9,y0=9,x1=-9,y1=-9;
+  lm.forEach(p=>{ if((p.visibility??1)<.3) return; if(p.x<x0)x0=p.x; if(p.x>x1)x1=p.x; if(p.y<y0)y0=p.y; if(p.y>y1)y1=p.y; });
+  if(x0>x1){ x0=y0=0; x1=y1=1; }
+  const S=Math.max((x1-x0)*W,(y1-y0)*H,24), a=lm[23], b=lm[24];
+  const hip=a&&b&&(a.visibility??1)>=.3&&(b.visibility??1)>=.3;
+  return {cx:hip?(a.x+b.x)/2:(x0+x1)/2, cy:hip?(a.y+b.y)/2:(y0+y1)/2, S, box:{x0,y0,x1,y1}};
+}
+function nearCenter(L){ let k=-1,bd=1e9; (L||[]).forEach((l,i)=>{ const a=l[23],b=l[24], v=a&&b?Math.hypot((a.x+b.x)/2-.5,(a.y+b.y)/2-.5):9; if(v<bd){bd=v;k=i} }); return bd<.3?k:-1; }
+async function scanPeople(lm,t,snap){ // 한 장면에서 보이는 사람 모두 찾기
+  const W=video.videoWidth,H=video.videoHeight;
+  if(Math.abs(video.currentTime-t)>1e-3) await seekTo(video,t);
+  snap.width=W; snap.height=H; snap.getContext('2d').drawImage(video,0,0,W,H);
+  const res=lm.detect(snap);
+  return (res.landmarks||[]).map(r=>{ const l=r.map(p=>({x:p.x,y:p.y,visibility:p.visibility??1})); return {lm:l,...descOf(l,W,H)}; }).filter(p=>p.S>H*0.05);
+}
+async function choosePeople(opt={}){ // null=한 명뿐(기존 방식) · false=취소 · 객체=고른 결과
+  setAna('화면에 사람이 몇 명 있는지 확인하는 중…',0);
+  const d=video.duration, times=[video.currentTime];
+  if(!opt.currentOnly) [.25,.5,.75].forEach(f=>times.push(Math.max(0,Math.min(d-.05,f*d))));
+  let best=null, lm=null;
+  try{
+    lm=await makeLM(qualKind(d),'IMAGE',MAXP);
+    const snap=document.createElement('canvas');
+    for(const t of times){
+      if(anaCancel) return false;
+      let ps=[]; try{ ps=await scanPeople(lm,t,snap); }catch(e){ console.error(e); }
+      if(!best||ps.length>best.ps.length){ const c=document.createElement('canvas'); c.width=snap.width; c.height=snap.height; c.getContext('2d').drawImage(snap,0,0); best={ps,t,snap:c}; }
+      if(ps.length>=2) break;
+    }
+  }catch(e){ console.error(e); return null; }
+  finally{ try{lm&&lm.close()}catch(e){} }
+  if(!best||best.ps.length<2) return null;
+  best.ps.sort((a,b)=>a.cx-b.cx).forEach((p,i)=>{ p.id=i+1; p.color=PCOL[i%PCOL.length]; });
+  const picked=await pickUI(best.snap,best.ps);
+  if(!picked||!picked.length) return false;
+  const sel=picked.slice().sort((a,b)=>a-b);
+  return {ref:{t:best.t,list:best.ps},sel,active:sel[0]};
+}
+function pickUI(snap,ps){
+  return new Promise(res=>{
+    const box=$('pickBox'), cvp=$('pickCv'), g=cvp.getContext('2d'), sel=new Set();
+    const k0=Math.min(1,1280/Math.max(snap.width,snap.height)); cvp.width=Math.round(snap.width*k0); cvp.height=Math.round(snap.height*k0);
+    const fit=()=>{ const wr=$('pickWrap'), k=Math.min(wr.clientWidth/cvp.width,wr.clientHeight/cvp.height); cvp.style.width=Math.floor(cvp.width*k)+'px'; cvp.style.height=Math.floor(cvp.height*k)+'px'; };
+    const draw=()=>{
+      const w=cvp.width,h=cvp.height,u=w/720; g.drawImage(snap,0,0,w,h);
+      ps.forEach(p=>{ const on=sel.has(p.id), b=p.box, m=.015;
+        const x=(b.x0-m)*w,y=(b.y0-m)*h,bw=(b.x1-b.x0+2*m)*w,bh=(b.y1-b.y0+2*m)*h;
+        g.save(); g.fillStyle=p.color; g.globalAlpha=on?.28:.1; g.fillRect(x,y,bw,bh); g.globalAlpha=1;
+        g.strokeStyle=p.color; g.lineWidth=(on?7:3)*u; g.setLineDash(on?[]:[14*u,10*u]); g.strokeRect(x,y,bw,bh); g.setLineDash([]);
+        g.strokeStyle='rgba(255,255,255,.75)'; g.lineWidth=2.5*u; g.lineCap='round';
+        LINKS.forEach(([i,j])=>{ const a=p.lm[i],c=p.lm[j]; if(!a||!c||a.visibility<.4||c.visibility<.4) return; g.beginPath(); g.moveTo(a.x*w,a.y*h); g.lineTo(c.x*w,c.y*h); g.stroke(); });
+        const tx=(on?'✓ ':'')+p.id+'번'; g.font=`bold ${30*u}px system-ui,sans-serif`; const tw=g.measureText(tx).width+22*u, th=44*u;
+        const lx=Math.max(0,Math.min(w-tw,x)), ly=Math.max(0,y-th);
+        g.fillStyle=p.color; g.fillRect(lx,ly,tw,th); g.fillStyle='#06251a'; g.textBaseline='middle'; g.textAlign='center'; g.fillText(tx,lx+tw/2,ly+th/2+1*u);
+        g.restore(); });
+      const n=sel.size; $('pickGo').disabled=!n; $('pickGo').textContent=n?`✔ ${n}명 분석 시작`:'✔ 사람을 먼저 고르세요';
+      $('pickAll').textContent=n===ps.length?'선택 모두 해제':'👥 전체 선택';
+    };
+    const done=v=>{ box.hidden=true; window.removeEventListener('resize',fit); cvp.onpointerdown=null; $('pickAll').onclick=$('pickGo').onclick=$('pickCancel').onclick=null; res(v); };
+    cvp.onpointerdown=e=>{
+      const r=cvp.getBoundingClientRect(), x=(e.clientX-r.left)/r.width, y=(e.clientY-r.top)/r.height; let hit=null,bd=1e9;
+      ps.forEach(p=>{ const b=p.box; if(x>=b.x0-.01&&x<=b.x1+.01&&y>=b.y0-.01&&y<=b.y1+.01){ const d=Math.hypot((p.cx-x)*snap.width,(p.cy-y)*snap.height); if(d<bd){bd=d;hit=p} } });
+      if(!hit) ps.forEach(p=>{ const d=Math.hypot((p.cx-x)*snap.width,(p.cy-y)*snap.height); if(d<bd&&d<p.S*.8){bd=d;hit=p} });
+      if(hit){ sel.has(hit.id)?sel.delete(hit.id):sel.add(hit.id); draw(); } };
+    $('pickAll').onclick=()=>{ if(sel.size===ps.length) sel.clear(); else ps.forEach(p=>sel.add(p.id)); draw(); };
+    $('pickGo').onclick=()=>done([...sel]);
+    $('pickCancel').onclick=()=>done(null);
+    $('pickTxt').innerHTML=`🧑‍🤝‍🧑 화면에 <b>${ps.length}명</b>이 보여요. 분석할 사람을 눌러 고르세요<br><span class="sub">한 명만도, 여러 명도 고를 수 있어요</span>`;
+    box.hidden=false; fit(); window.addEventListener('resize',fit); draw();
+  });
+}
+async function liveChoose(){ // 긴 영상(실시간 표시): 지금 화면에서 사람 고르기
+  if(!poseOn||ppl||analyzing||!video.src||video.readyState<2) return;
+  anaCancel=false; const c=await choosePeople({currentOnly:true});
+  if(!c) return;
+  ppl=c; PS={}; const p=c.ref.list.find(x=>x.id===c.active); liveTrk={cx:p.cx,cy:p.cy,S:p.S}; lf=null;
+  refreshPplBar(); detect(); render();
+}
+function pickLive(r){ // 실시간 인식: 여러 명 중 따라가던 사람(없으면 가장 큰 사람) 고르기
+  const L=r&&r.landmarks; if(!L||!L.length) return -1;
+  if(L.length===1&&!liveTrk&&!ppl) return 0;
+  const W=video.videoWidth,H=video.videoHeight, ds=L.map(l=>descOf(l,W,H)); let k=0,bd=1e9;
+  if(liveTrk) ds.forEach((d,i)=>{ const v=Math.hypot((d.cx-liveTrk.cx)*W,(d.cy-liveTrk.cy)*H)/liveTrk.S; if(v<bd){bd=v;k=i} });
+  else ds.forEach((d,i)=>{ if(-d.S<bd){bd=-d.S;k=i} });
+  liveTrk={cx:ds[k].cx,cy:ds[k].cy,S:liveTrk?.7*liveTrk.S+.3*ds[k].S:ds[k].S};
+  return k;
+}
+function withPrior(P,t0){ // 구간을 이어서 분석할 땐 이전 기록의 위치에서 사람 이어받기
+  const W=video.videoWidth,H=video.videoHeight;
+  const list=P.ref.list.map(p=>{ const s=PS[p.id]; if(!s||!s.clean) return p; let bi=-1,bd=1e9;
+    s.clean.forEach((f,i)=>{ if(!f.lm) return; const dd=Math.abs(f.t-t0); if(dd<bd){bd=dd;bi=i} });
+    if(bi<0) return p; const dsc=descOf(s.clean[bi].lm,W,H); return {...p,cx:dsc.cx,cy:dsc.cy,S:dsc.S}; });
+  return {...P,ref:{t:t0,list}};
+}
+async function analyzeMulti(el,name,p0,p1,rng,P){ // 고른 사람들을 영상 한 번 훑으며 각각 따라가기
+  const d=el.duration; if(!isFinite(d)||!d) throw new Error('영상 길이를 읽을 수 없어요');
+  const W=el.videoWidth,H=el.videoHeight, kind=qualKind(d);
+  setAna(`${name} 준비 중… (${QN[kind]} 모델 불러오는 중)`,p0);
+  const lm=await makeLM(kind,'VIDEO',MAXP), lmImg=await makeLM(kind,'IMAGE',3).catch(()=>null);
+  const n=Math.floor(d*AFPS)+1, i0=rng?Math.max(0,Math.floor(rng.a*AFPS)):0, i1=rng?Math.min(n-1,Math.ceil(rng.b*AFPS)):n-1;
+  const dets=new Array(n), offs=[]; let pg=null,pbs=[],o={x:0,y:0};
+  try{
+    for(let i=0;i<n;i++){
+      if(anaCancel) return null;
+      if(i<i0||i>i1){ dets[i]=[]; offs.push({x:o.x,y:o.y}); continue; }
+      await seekTo(el,Math.min(d-0.001,i/AFPS));
+      let res=null; try{ res=lm.detectForVideo(el,i*(1000/AFPS)+1); }catch(e){}
+      const list=[];
+      ((res&&res.landmarks)||[]).forEach((r,q)=>{
+        const rw=(res.worldLandmarks&&res.worldLandmarks[q])||null;
+        const c0=r.map((p,k)=>({x:p.x,y:p.y,visibility:p.visibility??1,wx:rw?rw[k].x:undefined,wy:rw?rw[k].y:undefined,wz:rw?rw[k].z:undefined}));
+        const cands=[c0], g=lmImg&&rotCrop(el,r);
+        if(g){ try{ const r2=lmImg.detect(rcv), q2=nearCenter(r2.landmarks); if(q2>=0) cands.push(unrot(r2.landmarks[q2],g,W,H,r2.worldLandmarks&&r2.worldLandmarks[q2])); }catch(e){} }
+        list.push({cands,...descOf(c0,W,H)});
+      });
+      dets[i]=list;
+      const G=grabGray(el); // 배경이 움직인 만큼 = 카메라 흔들림 (모든 사람 영역 제외)
+      if(G){ const bxs=list.map(x=>boxOf(x.cands[0],G.w,G.h));
+        if(pg){ const sh=estShift(pg,G,[...pbs,...bxs]); o={x:o.x+sh.x*W/G.w,y:o.y+sh.y*H/G.h}; }
+        pg=G; pbs=bxs; }
+      offs.push({x:o.x,y:o.y});
+      if(i%2===0){ const q=(i-i0)/Math.max(1,i1-i0); setAna(`${name} 분석 중 ${Math.round(q*100)}% · ${P.sel.length}명 · ${QN[kind]}`,p0+(p1-p0)*q); }
+    }
+  }finally{ try{lm.close()}catch(e){} try{lmImg&&lmImg.close()}catch(e){} }
+  // 장면마다 나온 사람들을 '누구인지' 이어 붙이기 (기준 장면에서 앞·뒤로, 가까운 사람끼리)
+  setAna('사람별로 나눠 맞추는 중…',p1);
+  const rI=Math.round(P.ref.t*AFPS), refIdx=Math.max(i0,Math.min(i1,rI)), far=rI!==refIdx;
+  const T=P.ref.list.map(p=>({id:p.id,ref:{cx:p.cx,cy:p.cy,S:p.S},idx:new Array(n).fill(-1)}));
+  const run=(from,to,step)=>{
+    T.forEach(t=>{ t.last={...t.ref}; t.gap=far?6:0; });
+    for(let i=from; step>0?i<=to:i>=to; i+=step){
+      const list=dets[i]; if(!list||!list.length){ T.forEach(t=>t.gap++); continue; }
+      const pairs=[]; T.forEach((t,ti)=>list.forEach((dd,di)=>{ const D=Math.hypot((dd.cx-t.last.cx)*W,(dd.cy-t.last.cy)*H)/t.last.S; if(D<=.6+.12*Math.min(t.gap,12)) pairs.push([D,ti,di]); }));
+      pairs.sort((a,b)=>a[0]-b[0]); const ut=new Set(),ud=new Set();
+      pairs.forEach(([D,ti,di])=>{ if(ut.has(ti)||ud.has(di)) return; ut.add(ti); ud.add(di); const t=T[ti],dd=list[di]; t.idx[i]=di; t.last={cx:dd.cx,cy:dd.cy,S:.7*t.last.S+.3*dd.S}; t.gap=0; });
+      T.forEach((t,ti)=>{ if(!ut.has(ti)) t.gap++; });
+    }
+  };
+  run(refIdx,i1,1); run(refIdx-1,i0,-1);
+  const outs={};
+  P.sel.forEach(id=>{ const t=T.find(x=>x.id===id), out=[];
+    for(let i=0;i<n;i++){ const di=t.idx[i], dd=di>=0&&dets[i]?dets[i][di]:null, tt=Math.min(d-0.001,i/AFPS);
+      out.push(dd?{t:tt,lm:dd.cands[0],cands:dd.cands.slice()}:{t:tt,lm:null,cands:[]}); }
+    out.rotPick=pickBest(out,W,H); out.fps=AFPS; out.kind=kind; out.cam=offs; outs[id]=out; });
+  return outs;
+}
+function rebuildViews(){ // 선택한 다른 사람들도 화면에 같이 그리기 위한 (흔들림 보정된) 기록
+  if(!ppl) return; const W=video.videoWidth,H=video.videoHeight,on=$('stab').checked&&corr;
+  ppl.sel.forEach(id=>{ const s=PS[id]; if(!s) return;
+    s.view=s.clean.map((f,i)=>{ if(!f.lm||!on) return f; const c=corr[Math.min(i,corr.length-1)]; return {t:f.t,lm:f.lm.map(p=>({...p,x:p.x-c.x/W,y:p.y-c.y/H}))}; });
+    s.view.fps=s.clean.fps; });
+}
+function activate(id){ // 선택한 사람 중 한 명의 결과로 바꾸기
+  if(!ppl||!PS[id]) return;
+  ppl.active=id; trackRaw=PS[id].raw; trackClean=PS[id].clean; computeCorr(trackRaw.cam); rebuildTrack();
+  coachRes=[]; cm=null; if($('coachRep')) $('coachRep').innerHTML='';
+  if(tTrack&&track) cmp=compare();
+  refreshPplBar(); showReport(); detect(); render();
+}
+function refreshPplBar(){
+  const bar=$('pplBar'); if(!bar) return;
+  if(!ppl||!ppl.sel.length){ bar.hidden=true; return; }
+  bar.hidden=false;
+  $('pplChips').innerHTML=ppl.sel.map(id=>{ const p=ppl.ref.list.find(x=>x.id===id); return `<span class="chip${id===ppl.active?' g':''}" data-id="${id}"><span class="dot" style="background:${p?p.color:'#fff'}"></span>${id}번</span>`; }).join('');
+  $('pplHint').textContent=ppl.sel.length>1?(Object.keys(PS).length?'칩을 누르면 그 사람의 분석 결과(속도·각도·힘의 흐름 등)로 바뀌어요. 영상에는 고른 사람이 모두 표시돼요.':'실시간 모드: 칩을 누르면 그 사람을 따라가요.'):'';
+}
+$('pplChips').onclick=e=>{ const c=e.target.closest('.chip'); if(!c||analyzing||!ppl) return; const id=+c.dataset.id;
+  if(PS[id]) activate(id);
+  else { ppl.active=id; const p=ppl.ref.list.find(x=>x.id===id); liveTrk={cx:p.cx,cy:p.cy,S:p.S}; lf=null; refreshPplBar(); detect(); render(); } };
+$('pplRe').onclick=()=>{ if(video.src&&!analyzing) $('anaBtn').click(); };
+function drawOthers(){ // 고른 사람들 표시: 다른 사람은 색깔 뼈대, 모두 번호표
+  if(!ppl||!poseOn||skelOn||ppl.sel.length<2) return;
+  const s=sc(),W=cv.width,H=cv.height;
+  ppl.sel.forEach(id=>{ const sp=PS[id]; if(!sp) return; const act=id===ppl.active;
+    const P=act?pose:(sp.view&&poseAt(sp.view,vtime())); if(!P) return;
+    const col=(ppl.ref.list.find(x=>x.id===id)||{}).color||'#fff';
+    ctx.save(); ctx.lineCap='round';
+    if(!act){ ctx.lineWidth=3*s; ctx.strokeStyle=col; ctx.globalAlpha=.85;
+      LINKS.forEach(([i,j])=>{ const a=P[i],b=P[j]; if(!a||!b||(a.visibility??1)<.4||(b.visibility??1)<.4) return; ctx.beginPath(); ctx.moveTo(a.x*W,a.y*H); ctx.lineTo(b.x*W,b.y*H); ctx.stroke(); }); }
+    const h=(P[0]&&(P[0].visibility??1)>=.3)?P[0]:P[11];
+    if(h){ const x=h.x*W, y=h.y*H-28*s, tx=id+'번'; ctx.globalAlpha=1; ctx.font=`bold ${18*s}px system-ui,sans-serif`; const w=ctx.measureText(tx).width+14*s;
+      ctx.fillStyle=col; ctx.fillRect(x-w/2,y-14*s,w,26*s); ctx.fillStyle='#06251a'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(tx,x,y); }
+    ctx.restore(); });
+}
+
+/* ---------- 정밀 분석 (영상 전체 관절 기록) ---------- */
+function seekTo(el,t){
+  return new Promise(r=>{let done=false;const f=()=>{if(done)return;done=true;el.removeEventListener('seeked',f);r()};
+    el.addEventListener('seeked',f); el.currentTime=t; setTimeout(f,1500);});
+}
+function setAna(txt,p){$('anaTxt').textContent=txt; if(p!=null)$('anaBar').style.width=Math.round(p*100)+'%'}
+async function analyze(el,name,p0,p1,cam,rng){
+  const d=el.duration; if(!isFinite(d)||!d) throw new Error('영상 길이를 읽을 수 없어요');
+  const kind=qualKind(d);
+  setAna(`${name} 준비 중… (${QN[kind]} 모델 불러오는 중)`,p0);
+  const lm=await makeLM(kind), out=[], n=Math.floor(d*AFPS)+1, offs=[];
+  const lmImg=await makeLM(kind,'IMAGE').catch(()=>null);
+  let pg=null,pb=null,o={x:0,y:0};
+  const i0=rng?Math.max(0,Math.floor(rng.a*AFPS)):0, i1=rng?Math.min(n-1,Math.ceil(rng.b*AFPS)):n-1;
+  try{
+    for(let i=0;i<n;i++){
+      if(anaCancel) return null;
+      const t=Math.min(d-0.001,i/AFPS);
+      if(i<i0||i>i1){ out.push({t,lm:null,cands:[]}); if(cam) offs.push({x:o.x,y:o.y}); continue; }
+      await seekTo(el,t);
+      let r=null,rw=null; try{ const res=lm.detectForVideo(el,i*(1000/AFPS)+1); r=res.landmarks[0]||null; rw=(res.worldLandmarks&&res.worldLandmarks[0])||null; }catch(e){}
+      const cands=[];
+      if(r){ cands.push(r.map((p,k)=>({x:p.x,y:p.y,visibility:p.visibility??1,wx:rw?rw[k].x:undefined,wy:rw?rw[k].y:undefined,wz:rw?rw[k].z:undefined})));
+        const g=lmImg&&rotCrop(el,r);
+        if(g){ try{ const res2=lmImg.detect(rcv), r2=res2.landmarks[0]; if(r2) cands.push(unrot(r2,g,el.videoWidth,el.videoHeight,res2.worldLandmarks&&res2.worldLandmarks[0])); }catch(e){} } }
+      out.push({t,lm:cands[0]||null,cands});
+      if(cam){ // 배경이 얼마나 움직였는지 = 카메라 흔들림
+        const G=grabGray(el);
+        if(G){ const bx=boxOf(r,G.w,G.h);
+          if(pg){ const sh=estShift(pg,G,[pb,bx]); o={x:o.x+sh.x*el.videoWidth/G.w,y:o.y+sh.y*el.videoHeight/G.h}; }
+          pg=G; pb=bx; }
+        offs.push({x:o.x,y:o.y});
+      }
+      if(i%2===0){ const q=(i-i0)/Math.max(1,i1-i0); setAna(`${name} 분석 중 ${Math.round(q*100)}% · ${QN[kind]}`,p0+(p1-p0)*q); }
+    }
+  }finally{ try{lm.close()}catch(e){} try{lmImg&&lmImg.close()}catch(e){} }
+  out.rotPick=pickBest(out,el.videoWidth,el.videoHeight);
+  out.fps=AFPS; out.kind=kind; out.cam=cam?offs:null;
+  return out;
+}
+function poseAt(tr,t){
+  if(!tr||!tr.length) return null;
+  const f=t*AFPS, i=Math.max(0,Math.min(tr.length-1,Math.floor(f))), j=Math.min(tr.length-1,i+1), w=Math.max(0,Math.min(1,f-i));
+  const a=tr[i].lm,b=tr[j].lm;
+  if(!a) return b; if(!b||w===0) return a;
+  return a.map((p,k)=>{ const q=b[k], has=p.wx!=null&&q.wx!=null;
+    return {x:p.x+(q.x-p.x)*w,y:p.y+(q.y-p.y)*w,visibility:Math.min(p.visibility,q.visibility),wx:has?p.wx+(q.wx-p.wx)*w:p.wx,wy:has?p.wy+(q.wy-p.wy)*w:p.wy,wz:has?p.wz+(q.wz-p.wz)*w:p.wz}; });
+}
+const med=a=>{if(!a.length)return null;a=a.slice().sort((x,y)=>x-y);return a[a.length>>1]};
+function calcStats(){
+  const W=video.videoWidth,H=video.videoHeight,torso=[],floor=[];
+  track.forEach(f=>{const l=f.lm; if(!l) return;
+    const A=anchor(l,W,H); if(A) torso.push(A.L);
+    const fy=[29,30,31,32].filter(i=>l[i].visibility>.4).map(i=>l[i].y*H); if(fy.length) floor.push(Math.max(...fy));
+  });
+  const tm=med(torso), hcm=Math.max(80,Math.min(210,parseFloat($('hcm').value)||140));
+  mpp=tm?(hcm/100*0.29)/tm:null; floorY=med(floor);
+  jstats={};
+  TJ.forEach(j=>{
+    const n=track.length, raw=new Float32Array(n), sp=new Float32Array(n), G=[1,2,3,2,1];
+    const pr=track.map(f=>f.lm&&f.lm[j.i].visibility>.3?{x:f.lm[j.i].x*W,y:f.lm[j.i].y*H}:null);
+    const ps=pr.map((_,i)=>{let sx=0,sy=0,sw=0;for(let d=-2;d<=2;d++){const q=pr[i+d];if(q){sx+=q.x*G[d+2];sy+=q.y*G[d+2];sw+=G[d+2]}}return pr[i]&&sw>=4?{x:sx/sw,y:sy/sw}:null});
+    const lim=mpp?18/mpp:1e9; // 사람이 낼 수 없는 속도(18m/s 이상)는 인식 오류로 보고 버림
+    for(let i=1;i<n;i++){const pa=ps[i-1],pb=ps[i]; if(!pa||!pb) continue;
+      const v=Math.hypot(pb.x-pa.x,pb.y-pa.y)*AFPS; raw[i]=v>lim?0:v;}
+    for(let i=0;i<n;i++){const q=[raw[Math.max(0,i-1)],raw[i],raw[Math.min(n-1,i+1)]].sort((x,y)=>x-y); sp[i]=q[1];} // 튀는 값 제거
+    let max=0,maxI=0; sp.forEach((v,i)=>{if(v>max){max=v;maxI=i}});
+    let hi=null,hiI=0;
+    if(j.foot&&floorY!=null&&mpp){let mn=1e9; track.forEach((f,i)=>{const p=f.lm&&f.lm[j.i]; if(p&&p.visibility>.4&&p.y*H<mn){mn=p.y*H;hiI=i}}); if(mn<1e9) hi=(floorY-mn)*mpp*100;}
+    jstats[j.k]={speed:sp,max,maxT:maxI/AFPS,hi,hiT:hiI/AFPS};
+  });
+}
+function refreshTrStats(){
+  const el=$('trStats');
+  if(!track){el.innerHTML=trailSel.size?'<span class="sub">영상을 불러오면 자동으로 분석해요.</span>':'';return}
+  el.innerHTML=TJ.filter(j=>trailSel.has(j.k)).map(j=>{const s=jstats[j.k];
+    const v=mpp?(s.max*mpp).toFixed(1)+'m/s':Math.round(s.max)+'px/s';
+    const h=s.hi!=null&&s.hi>20?` · 최고높이 ${Math.round(s.hi)}cm`:'';
+    return `<span class="chip" data-t="${s.maxT}" style="border-color:${j.c}">${j.name} 최고속도 ${v}${h}</span>`}).join('')
+    +(trailSel.size?'<div class="sub" style="width:100%">칩을 누르면 가장 빠른 순간으로 이동해요. 속도·높이는 키를 기준으로 한 추정치예요.</div>':'');
+}
+$('trStats').onclick=e=>{const c=e.target.closest('.chip'); if(!c) return; fz=null; video.pause(); video.currentTime=parseFloat(c.dataset.t);};
+$('hcm').onchange=()=>{if(track){calcStats();refreshTrStats(); if(kin){ try{computeBody()}catch(e){console.error(e)} refreshForceRep(); } render()}};
+
+async function busyRun(fn){
+  if(analyzing||!video.src) return;
+  analyzing=true; anaCancel=false;
+  const prevT=video.currentTime; fz=null; video.pause();
+  $('anaBox').hidden=false; $('save').disabled=true; document.body.classList.add('busy');
+  try{ await fn(); }catch(err){ alert('분석 실패: '+err.message); }
+  finally{
+    analyzing=false; $('anaBox').hidden=true; $('save').disabled=false; document.body.classList.remove('busy');
+    await seekTo(video,prevT); detect(); render();
+  }
+}
+$('anaCancel').onclick=()=>{anaCancel=true; setAna('취소하는 중…')};
+async function analyzeStudent(p0=0,p1=1,rng=null){
+  if(!rng&&video.duration>120&&!confirm('영상이 길어서 분석에 몇 분 걸릴 수 있어요. 계속할까요?')){anaCancel=true;return}
+  const fps=video.duration<=20?30:20;
+  if(tTrack&&tTrack.fps!==fps){tTrack=null;cmp=null}
+  AFPS=fps;
+  if(!rng){ const c=await choosePeople(); if(c===false){ anaCancel=true; return; } ppl=c; PS={}; liveTrk=null; }
+  let tr;
+  if(ppl){ // 여러 명 중 고른 사람들을 한 번에 따라가며 분석
+    const outs=await analyzeMulti(video,'원생 영상',p0,p1,rng,rng?withPrior(ppl,rng.a):ppl); if(!outs) return;
+    const W0=video.videoWidth,H0=video.videoHeight; PS={};
+    ppl.sel.forEach(id=>{ PS[id]={raw:outs[id],clean:cleanTrack(outs[id],W0,H0)}; });
+    if(!PS[ppl.active]) ppl.active=ppl.sel[0];
+    tr=PS[ppl.active].raw; trackRaw=tr; trackClean=PS[ppl.active].clean;
+  } else {
+    tr=await analyze(video,'원생 영상',p0,p1,true,rng); if(!tr) return;
+    trackRaw=tr; trackClean=cleanTrack(tr,video.videoWidth,video.videoHeight);
+  }
+  anaRng=rng;
+  computeCorr(tr.cam); rebuildTrack();
+  const mx=corr?Math.max(0,...corr.map(c=>Math.hypot(c.x,c.y))):0;
+  $('stabInfo').textContent=`✔ 관절 튐 ${trackClean.fixed}곳 바로잡음 · `+(mx>3?`화면 흔들림 최대 ${Math.round(mx)}px 보정`:'화면 흔들림 거의 없음')+(tr.rotPick?` · 기울어진 자세 ${tr.rotPick}장면 다시 인식`:'')+` · ${QN[tr.kind]} 모델`+(rng?` · ${rng.a.toFixed(0)}~${rng.b.toFixed(0)}초 구간 (구간 밖으로 가면 자동으로 다시 분석해요)`:'');
+  refreshPplBar(); if(ppl&&ppl.sel.length>1) $('stabInfo').textContent+=` · 👥 ${ppl.sel.length}명 분석 (지금 ${ppl.active}번 결과)`;
+}
+$('anaBtn').onclick=()=>{
+  if(!video.src){alert('먼저 영상을 불러오세요.');return}
+  busyRun(async()=>{ await analyzeStudent(0, tTrack?0.9:1); if(track&&tTrack){setAna('사범 시범과 맞추는 중…',0.95); await new Promise(r=>setTimeout(r,30)); cmp=compare();} })
+    .then(showReport);
+};
+document.querySelectorAll('#trSel button').forEach(b=>b.onclick=async()=>{
+  const k=b.dataset.k; trailSel.has(k)?trailSel.delete(k):trailSel.add(k);
+  b.classList.toggle('on',trailSel.has(k));
+  if(trailSel.size&&!track&&video.src) await busyRun(()=>analyzeStudent());
+  refreshTrStats(); render();
+});
+
+
+/* ---------- 힘의 흐름 (운동 사슬) ---------- */
+const CHAINS=[
+  {k:'rf',name:'오른발 차기',j:[24,26,28,32],n:['골반','무릎','발목','발끝']},
+  {k:'lf',name:'왼발 차기',j:[23,25,27,31],n:['골반','무릎','발목','발끝']},
+  {k:'rh',name:'오른손 지르기',j:[26,33,34,12,14,16],n:['무릎','허리','상체','어깨','팔꿈치','손목']},
+  {k:'lh',name:'왼손 지르기',j:[25,33,34,11,13,15],n:['무릎','허리','상체','어깨','팔꿈치','손목']}
+];
+const KIDX=[11,12,13,14,15,16,23,24,25,26,27,28,31,32,33,34];
+// 33 = 허리(양쪽 엉덩이 가운데), 34 = 상체(양쪽 어깨 가운데) — 가상 관절
+function vl(P,id){ if(id===33||id===34){ const a=P[id===33?23:11],b=P[id===33?24:12]; return {x:(a.x+b.x)/2,y:(a.y+b.y)/2,visibility:Math.min(a.visibility??1,b.visibility??1)}; } return P[id]; }
+let kin=null;
+function computeKin(){
+  const W=video.videoWidth,H=video.videoHeight,n=track.length,G=[1,2,3,2,1];
+  kin={vel:{},acc:{},spd:{},vmax:{},amax:{},chains:[]};
+  const diff=A=>A.map((_,i)=>{const a=A[i-1],b=A[i+1];return a&&b?{x:(b.x-a.x)*AFPS/2,y:(b.y-a.y)*AFPS/2}:null});
+  KIDX.forEach(id=>{
+    const raw=track.map(f=>{const q=f.lm&&vl(f.lm,id); return q&&q.visibility>.3?{x:q.x*W,y:q.y*H}:null});
+    const P=raw.map((_,i)=>{let sx=0,sy=0,sw=0;for(let d=-2;d<=2;d++){const p=raw[i+d];if(p){sx+=p.x*G[d+2];sy+=p.y*G[d+2];sw+=G[d+2]}}return sw>=4?{x:sx/sw,y:sy/sw}:null});
+    const V=diff(P), A=diff(V), S=V.map(v=>v?Math.hypot(v.x,v.y):0);
+    const am=A.map(a=>a?Math.hypot(a.x,a.y):0).filter(x=>x>0).sort((a,b)=>a-b);
+    let vm=1; S.forEach(v=>{if(v>vm)vm=v});
+    kin.vel[id]=V; kin.acc[id]=A; kin.spd[id]=S; kin.vmax[id]=vm; kin.amax[id]=am.length?am[Math.floor(am.length*.95)]:1;
+  });
+  CHAINS.forEach(c=>{
+    const end=c.j[c.j.length-1], S=kin.spd[end]; let iE=0; S.forEach((v,i)=>{if(v>S[iE])iE=i});
+    const a=Math.max(0,iE-12), b=Math.min(n-1,iE+3);
+    const peaks=c.j.map(id=>{let bi=a;for(let i=a;i<=b;i++) if(kin.spd[id][i]>kin.spd[id][bi]) bi=i; return {i:bi,v:kin.spd[id][bi]}});
+    let bad=-1; for(let q=1;q<peaks.length;q++) if(peaks[q].i<peaks[q-1].i-1&&peaks[q-1].v>=0.2*peaks[q].v){bad=q;break}
+    kin.chains.push({...c,peak:S[iE],iE,peaks,bad,amp:peaks[0].v>1?peaks[peaks.length-1].v/peaks[0].v:0});
+  });
+  try{ computeBody(); }catch(e){ gb=null; console.error(e); }
+}
+function activeChains(i){
+  const sel=$('forceSel').value; if(sel!=='auto') return kin.chains.filter(c=>c.k===sel);
+  let best=null,bv=0.25;
+  kin.chains.forEach(c=>{const e=c.j[c.j.length-1],v=kin.spd[e][i]/kin.vmax[e]; if(v>bv){bv=v;best=c}});
+  return best?[best]:[];
+}
+function arrow(x1,y1,x2,y2,col,lw){
+  ctx.save(); ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=lw; ctx.lineCap='round';
+  ctx.shadowColor='rgba(0,0,0,.85)'; ctx.shadowBlur=lw*1.5;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const th=Math.atan2(y2-y1,x2-x1), h=lw*3.4;
+  ctx.beginPath(); ctx.moveTo(x2+Math.cos(th)*h*.5,y2+Math.sin(th)*h*.5);
+  ctx.lineTo(x2-h*Math.cos(th-.5),y2-h*Math.sin(th-.5)); ctx.lineTo(x2-h*Math.cos(th+.5),y2-h*Math.sin(th+.5));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function drawForce(){
+  if(!kin||!track||!$('forceOn').checked||!pose) return;
+  const s=sc(),W=cv.width,H=cv.height,i=Math.max(0,Math.min(track.length-1,Math.round(vtime()*AFPS)));
+  const chs=activeChains(i);
+  chs.forEach(c=>{
+    ctx.save(); ctx.lineCap='round';
+    for(let q=1;q<c.j.length;q++){ // 힘이 흐르는 분절 발광
+      const A=vl(pose,c.j[q-1]),B=vl(pose,c.j[q]); if(A.visibility<.3||B.visibility<.3) continue;
+      const e=Math.min(1,kin.spd[c.j[q]][i]/kin.vmax[c.j[q]]);
+      const col=`hsla(${50-50*e},100%,${55+e*15}%,${.2+e*.7})`;
+      ctx.strokeStyle=col; ctx.shadowColor=col; ctx.shadowBlur=22*e*s; ctx.lineWidth=(6+e*14)*s;
+      ctx.beginPath(); ctx.moveTo(A.x*W,A.y*H); ctx.lineTo(B.x*W,B.y*H); ctx.stroke();
+    }
+    ctx.restore();
+    c.j.forEach(id=>{ // 힘 방향 화살표 (가속도 = 힘의 방향)
+      const a=kin.acc[id][i],p=vl(pose,id); if(!a||p.visibility<.3) return;
+      const m=Math.hypot(a.x,a.y), r=Math.min(1,m/kin.amax[id]); if(r<.2||!m) return;
+      const L=(25+80*r)*s;
+      arrow(p.x*W,p.y*H,p.x*W+a.x/m*L,p.y*H+a.y/m*L,`hsl(${50-50*r},100%,60%)`,(3+3.5*r)*s);
+    });
+  });
+  if(chs.length){ ctx.save(); hud(); drawFlowHud(chs[0],i); ctx.restore(); }
+}
+function drawFlowHud(c,i){
+  const s=sc(), N=c.j.length, step=72*s, x0=12*s, y0=(cmp&&$('scoreOn').checked?72:12)*s, w=step*(N-1)+64*s, h=86*s;
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,.62)'; ctx.beginPath(); ctx.roundRect?ctx.roundRect(x0,y0,w,h,12*s):ctx.rect(x0,y0,w,h); ctx.fill();
+  ctx.font=`bold ${15*s}px sans-serif`; ctx.fillStyle='#ffd23f'; ctx.textAlign='left'; ctx.fillText('💥 '+c.name,x0+10*s,y0+21*s);
+  c.j.forEach((id,q)=>{
+    const e=Math.min(1,kin.spd[id][i]/kin.vmax[id]), cx=x0+32*s+q*step, cy=y0+46*s;
+    if(q>0){ ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.moveTo(cx-step+16*s,cy); ctx.lineTo(cx-18*s,cy); ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.moveTo(cx-15*s,cy); ctx.lineTo(cx-23*s,cy-5*s); ctx.lineTo(cx-23*s,cy+5*s); ctx.fill(); }
+    const col=`hsl(${50-50*e},100%,${28+e*37}%)`;
+    ctx.beginPath(); ctx.arc(cx,cy,(7+7*e)*s,0,7); ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=20*e*s; ctx.fill(); ctx.shadowBlur=0;
+    ctx.font=`bold ${12*s}px sans-serif`; ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.fillText(c.n[q],cx,cy+30*s);
+  });
+  ctx.restore();
+}
+function refreshForceRep(){
+  try{ refreshGrfRep(); }catch(e){ console.error(e); }
+  const el=$('forceRep');
+  if(!kin||!$('forceOn').checked){el.innerHTML='';return}
+  let top=0; kin.chains.forEach(c=>{if(c.peak>top)top=c.peak});
+  el.innerHTML=kin.chains.filter(c=>c.peak>=top*.35).sort((a,b)=>b.peak-a.peak).map(c=>{
+    const E=c.peaks[c.peaks.length-1].v, st=Math.max(0,c.peaks.findIndex(p=>p.v>=.2*E)), pk=c.peaks.slice(st);
+    const seq=c.peaks.map((p,q)=>`${c.n[q]} ${(p.i/AFPS).toFixed(2)}s`).join(' → ');
+    const sp=mpp?` · 끝 속도 ${(c.peak*mpp).toFixed(1)}m/s`:'';
+    const fixed=st>0?` (${c.n.slice(0,st).join('·')}은(는) 거의 고정)`:'';
+    const amp=pk[0].v>1?E/pk[0].v:0;
+    const msg=c.bad<0
+      ?`✅ 힘이 ${c.n[st]}에서 ${c.n[c.n.length-1]}까지 순서대로 전달돼요${fixed}`+(amp>0&&amp<30?` (끝에서 ${amp.toFixed(1)}배로 증폭)`:'')
+      :`⚠ ${c.n[c.bad]}이(가) ${c.n[c.bad-1]}보다 먼저 빨라져서 힘이 끊겨요 → ${c.n[c.bad-1]}부터 먼저 밀어 주세요`;
+    return `<div class="fchip" data-t="${Math.max(0,c.peaks[0].i/AFPS-0.4)}"><b>${c.name}</b>${sp}<br>${msg}<div class="seq">${seq}</div></div>`;
+  }).join('')+'<div class="sub">카드를 누르면 그 동작 직전으로 이동해요. 0.25x로 재생하면 힘이 흘러가는 게 잘 보여요.</div>';
+}
+$('forceRep').onclick=e=>{const c=e.target.closest('.fchip'); if(!c) return; fz=null; video.pause(); video.currentTime=parseFloat(c.dataset.t);};
+$('forceOn').onchange=async()=>{
+  if($('forceOn').checked&&!track&&video.src) await busyRun(()=>analyzeStudent());
+  refreshForceRep(); render();
+};
+
+/* ---------- 지면반력·무게중심·발→주먹 힘 전달 (영상 추정) ---------- */
+const GRAV=9.81;
+function smoothSeries(A){const G=[1,2,3,2,1];return A.map((_,i)=>{let sx=0,sy=0,sw=0;for(let d=-2;d<=2;d++){const p=A[i+d];if(p){sx+=p.x*G[d+2];sy+=p.y*G[d+2];sw+=G[d+2]}}return sw>=4?{x:sx/sw,y:sy/sw}:null});}
+function gdir(){ const v=$('grfDir').value; return v==='r'?1:v==='l'?-1:(gb?gb.dir:1); }
+function computeBody(){
+  gb=null; if(!track||!track.length||!mpp) return;
+  const W=video.videoWidth,H=video.videoHeight,n=track.length,g=GRAV;
+  const tm=(Math.max(80,Math.min(210,parseFloat($('hcm').value)||140))/100*0.29)/mpp; // 몸통 길이(px)
+  const g1=(l,id)=>{const p=l[id]; return p&&(p.visibility??1)>.3?{x:p.x*W,y:p.y*H}:null};
+  const mid=(a,b)=>a&&b?{x:(a.x+b.x)/2,y:(a.y+b.y)/2}:null;
+  const lerp=(a,b,f)=>a&&b?{x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f}:null;
+  const SIDE=[{sh:11,el:13,wr:15,fi:19,hp:23,kn:25,an:27,to:31,he:29},{sh:12,el:14,wr:16,fi:20,hp:24,kn:26,an:28,to:32,he:30}];
+  const com=[],hipM=[],ankM=[],low=[[],[]],cp=[[],[]],phv=[[],[]];
+  track.forEach(f=>{
+    const l=f.lm;
+    if(!l){ com.push(null);hipM.push(null);ankM.push(null); for(let k=0;k<2;k++){low[k].push(null);cp[k].push(null);phv[k].push(null)} return; }
+    // 몸 부위별 무게(Winter 표준 비율)로 무게중심 계산
+    const parts=[[.497,lerp(mid(g1(l,11),g1(l,12)),mid(g1(l,23),g1(l,24)),.5)],[.081,mid(g1(l,7),g1(l,8))||g1(l,0)]];
+    SIDE.forEach(S=>{
+      const sh=g1(l,S.sh),el=g1(l,S.el),wr=g1(l,S.wr),fi=g1(l,S.fi),hp=g1(l,S.hp),kn=g1(l,S.kn),an=g1(l,S.an),to=g1(l,S.to);
+      parts.push([.028,lerp(sh,el,.436)],[.016,lerp(el,wr,.43)],[.006,lerp(wr,fi,.5)||wr],[.1,lerp(hp,kn,.433)],[.0465,lerp(kn,an,.433)],[.0145,lerp(an,to,.5)]);
+    });
+    let m=0,sx=0,sy=0; parts.forEach(([w,q])=>{if(q){m+=w;sx+=w*q.x;sy+=w*q.y}});
+    com.push(m>=.8?{x:sx/m,y:sy/m}:null);
+    hipM.push(mid(g1(l,23),g1(l,24))); ankM.push(mid(g1(l,27),g1(l,28)));
+    SIDE.forEach((S,k)=>{
+      const he=g1(l,S.he),to=g1(l,S.to),an=g1(l,S.an), pts=[he,to].filter(Boolean);
+      phv[k].push(he&&to?(to.y-he.y)/tm:null); // 발가락이 뒤꿈치보다 낮을수록 +
+      if(pts.length){ low[k].push({x:0,y:Math.max(...pts.map(q=>q.y))}); cp[k].push(pts.length===2?mid(pts[0],pts[1]):pts[0]); }
+      else if(an){ low[k].push({x:0,y:an.y+.2*tm}); cp[k].push({x:an.x,y:an.y+.2*tm}); }
+      else { low[k].push(null); cp[k].push(null); }
+    });
+  });
+  const comS=smoothSeries(smoothSeries(com));
+  const kk=AFPS*AFPS/4;
+  const acc=comS.map((_,i)=>{const a=comS[i-2],b=comS[i],c=comS[i+2]; if(!a||!b||!c) return null;
+    return {x:(c.x-2*b.x+a.x)*mpp*kk, y:-(c.y-2*b.y+a.y)*mpp*kk};}); // y: 위쪽이 +
+  const lowS=low.map(smoothSeries), cpS=cp.map(smoothSeries); // 접지점도 부드럽게: 발→무게중심 방향이 흔들리지 않게
+  const phS=phv.map(A=>A.map((_,i)=>{const w=[A[i-1],A[i],A[i+1]].filter(v=>v!=null);return w.length?w.reduce((a,b)=>a+b,0)/w.length:null}));
+  // 지면 높이: 앞뒤 1초 동안 가장 낮은 발 위치 (카메라 쪽으로 걸어와도 따라가도록)
+  const lowAll=lowS[0].map((a,i)=>{const b=lowS[1][i]; return a&&b?Math.max(a.y,b.y):(a?a.y:(b?b.y:null))});
+  const fl=lowAll.map((_,i)=>{ const w=[]; for(let j=Math.max(0,i-AFPS);j<=Math.min(n-1,i+AFPS);j++) if(lowAll[j]!=null) w.push(lowAll[j]); if(!w.length) return -1e9; w.sort((a,b)=>a-b); return w[Math.min(w.length-1,Math.floor(w.length*.9))]; }); // 최댓값 대신 상위 10%: 관절 튐 한 번에 지면이 내려가 '공중'으로 오인하는 것 방지
+  const tol=.15*tm;
+  const grA=[0,1].map(k=>lowS[k].map((L,i)=>{
+    const P=cpS[k][i],L0=lowS[k][i-1],L1=lowS[k][i+1]; if(!L||!P) return false;
+    const vy=(L0&&L1)?(L1.y-L0.y)*AFPS/2*mpp:0;
+    return L.y>=fl[i]-tol && Math.abs(vy)<.7; }));
+  const gapMax=Math.max(2,Math.round(.1*AFPS));
+  grA.forEach((A,k)=>{
+    for(let i=1;i<A.length;){ // 0.1초 안쪽으로 잠깐 끊긴 접지는 이어 붙임 (깜빡임 방지)
+      if(A[i-1]&&!A[i]){ let j=i; while(j<A.length&&!A[j]) j++;
+        if(j<A.length&&j-i<=gapMax){ let ok=true; for(let m=i;m<j;m++) if(!cpS[k][m]||!lowS[k][m]) ok=false; if(ok) for(let m=i;m<j;m++) A[m]=true; }
+        i=j+1; } else i++; }
+    for(let i=0;i<A.length;i++) if(A[i]&&!A[i-1]&&!A[i+1]) A[i]=false; // 한 장짜리 접지는 잡음
+  });
+  const F=[], pelRaw=[];
+  for(let i=0;i<n;i++){
+    const c=comS[i], a=acc[i];
+    pelRaw.push(hipM[i]&&ankM[i]?{x:(hipM[i].x-ankM[i].x)*mpp,y:0}:null);
+    if(!c||!a){ F.push(null); continue; }
+    const tot={fx:Math.max(-4,Math.min(4,a.x/g)), fy:Math.min(6,Math.max(0,(a.y+g)/g))}; // 체중(BW) 단위. x: 오른쪽 +, y: 위 +. 영상 잡음으로 생기는 비현실적 값은 자름
+    const gr=[grA[0][i],grA[1][i]];
+    const ft=[null,null], on=[0,1].filter(k=>gr[k]);
+    const pt=k=>({x:cpS[k][i].x*mpp,y:-cpS[k][i].y*mpp}), C={x:c.x*mpp,y:-c.y*mpp};
+    if(on.length===1){ ft[on[0]]={fx:tot.fx,fy:tot.fy}; }
+    else if(on.length===2){
+      // 두 발의 힘은 각각 "발 → 무게중심" 방향으로 걸린다고 보고 합력에 맞춰 나눔
+      // → 무게중심 앞쪽 발은 뒤로 버티고(제동), 뒤쪽 발은 앞으로 밀어줘요(추진)
+      const A=pt(0),B=pt(1), da=Math.hypot(C.x-A.x,C.y-A.y), db=Math.hypot(C.x-B.x,C.y-B.y);
+      let done=false;
+      if(da>.05&&db>.05){
+        const ua={x:(C.x-A.x)/da,y:(C.y-A.y)/da}, ub={x:(C.x-B.x)/db,y:(C.y-B.y)/db};
+        const det=ua.x*ub.y-ub.x*ua.y;
+        if(Math.abs(det)>.2){
+          const Na=(tot.fx*ub.y-ub.x*tot.fy)/det, Nb=(ua.x*tot.fy-tot.fx*ua.y)/det;
+          if(Na>=-.02&&Nb>=-.02){ ft[0]={fx:Na*ua.x,fy:Na*ua.y}; ft[1]={fx:Nb*ub.x,fy:Nb*ub.y}; done=true; }
+        }
+      }
+      if(!done){ const dx=A.x-B.x, sh=Math.abs(dx)>.05?Math.max(0,Math.min(1,(C.x-B.x)/dx)):.5;
+        ft[0]={fx:tot.fx*sh,fy:tot.fy*sh}; ft[1]={fx:tot.fx*(1-sh),fy:tot.fy*(1-sh)}; }
+    }
+    const ca=comS[i-2],cb=comS[i+2], vx=(ca&&cb)?(cb.x-ca.x)*mpp*AFPS/4:0; // 몸(무게중심)의 가로 속도 m/s
+    F.push({cx:c.x/W,cy:c.y/H,tx:tot.fx,ty:tot.fy,vx,
+      ft:ft.map((q,k)=>q?{x:cpS[k][i].x/W,y:cpS[k][i].y/H,fx:q.fx,fy:q.fy,ph:phS[k][i]}:null)});
+  }
+  const raw2=F.map(q=>q?q.ft.map(f=>f?{fx:f.fx,fy:f.fy}:null):null);
+  F.forEach((q,i)=>{ if(!q) return; q.ft.forEach((f,k)=>{ if(!f) return;
+    let sx=2*raw2[i][k].fx, sy=2*raw2[i][k].fy, sw=2;
+    [-1,1].forEach(d=>{ const r=raw2[i+d]&&raw2[i+d][k]; if(r){ sx+=r.fx; sy+=r.fy; sw++; } });
+    f.fx=sx/sw; f.fy=sy/sw; }); });
+  const pel=smoothSeries(smoothSeries(pelRaw)).map(q=>q?q.x:null);
+  let dir=1; try{ const fc=facing(track,W,H,false); if(Math.abs(fc.nose)>.05) dir=Math.sign(fc.nose); }catch(e){}
+  const sel=$('grfDir').value, ref0=sel==='r'?1:sel==='l'?-1:dir;
+  // 진행 방향(ref) = 몸이 가는 쪽. 거의 멈춘 동안은 직전 방향을 유지해서 색이 깜빡이지 않게 함
+  let pr=ref0; F.forEach(q=>{ if(!q) return; if(Math.abs(q.vx||0)>.25) pr=Math.sign(q.vx); q.ref=pr; });
+  // 반대발이 빠르게 움직이면(차는 중) 이 발은 축발
+  const kickAt=(i,k)=>{ const id=k===0?28:27, S=kin&&kin.spd[id]; return !!(S&&kin.vmax[id]&&S[i]/kin.vmax[id]>.3&&S[i]*mpp>4); }; // 차는 발: 빠르고(4m/s 이상) 그 영상에서 센 편
+  const TOE=.08, HEEL=-.05; // 발가락이 뒤꿈치보다 몸통길이의 8% 이상 낮으면 '발가락 닿음'
+  F.forEach((q,i)=>{
+    if(!q) return;
+    const R=q.ref, ks=[0,1].filter(k=>q.ft[k]), fK=ks.length===2?(q.ft[0].x*R>q.ft[1].x*R?0:1):-1;
+    q.push=0; q.brk=0;
+    ks.forEach(k=>{
+      const f=q.ft[k], h=f.fx*R;
+      f.pos=ks.length===2?(k===fK?'front':'rear'):'solo';
+      f.kick=ks.length===1&&kickAt(i,k);
+      // 주황 = 몸이 가는 쪽으로 미는 힘(뒷발·축발), 파랑 = 가는 쪽을 막는 힘(앞발), 초록 = 받침
+      f.role=f.kick?(h<-.3?'brake':h>.03?'push':'hold'):(h>.08?'push':h<-.08?'brake':'hold');
+      if(f.role==='push') q.push+=Math.abs(h); else if(f.role==='brake') q.brk+=Math.abs(h);
+      const dy=f.ph; f.stage=dy==null?'':dy>TOE?'toe':dy<HEEL?'heel':'flat';
+    });
+  });
+  // 발이 땅에 닿는 순간(착지): 앞발 착지 = 제동이 시작되는 순간
+  const td=[]; for(let k=0;k<2;k++){ let off=0; for(let i=0;i<n;i++){ if(!F[i]) continue; if(F[i].ft[k]){ if(off>=2) td.push({k,i}); off=0; } else off++; } }
+  td.sort((a,b)=>a.i-b.i);
+  const win=Math.round(.4*AFPS);
+  td.forEach(t=>{
+    const R=F[t.i].ref, me=cpS[t.k][t.i], ot=cpS[1-t.k][t.i];
+    t.front=me&&ot?me.x*R>ot.x*R:F[t.i].ft[t.k].pos==='front';
+    // 닿은 직후 0.2초 안에 발가락(또는 뒤꿈치)이 먼저 닿는 모양이 보이면 그걸 착지 모양으로 봄
+    let sg=F[t.i].ft[t.k].stage||'', i0=t.i;
+    for(let i=t.i;i<=Math.min(n-1,t.i+Math.round(.2*AFPS));i++){ const g=F[i]&&F[i].ft[t.k]; if(!g) break; if(g.stage==='toe'||g.stage==='heel'){ sg=g.stage; i0=i; break; } }
+    t.stage=sg; t.toeAt=i0; t.heelAt=null;
+    if(sg==='toe'){ for(let i=i0+1;i<=Math.min(n-1,i0+win);i++){ const g=F[i]&&F[i].ft[t.k]; if(!g) break; if(g.stage==='flat'||g.stage==='heel'){ t.heelAt=i; break; } } }
+    let bv=0,bi=t.i; for(let i=t.i;i<=Math.min(n-1,t.i+win);i++){ const g=F[i]&&F[i].ft[t.k]; if(!g) break; const h=-g.fx*F[i].ref; if(h>bv){bv=h;bi=i} }
+    t.brk=bv; t.brkAt=bi;
+  });
+  const st={push:{v:0,i:0,imp:0},brk:{v:0,i:0,imp:0},up:{v:0,i:0}};
+  F.forEach((q,i)=>{ if(!q||!(q.ft[0]||q.ft[1])) return;
+    st.push.imp+=q.push/AFPS; st.brk.imp+=q.brk/AFPS;
+    if(q.push>st.push.v){st.push.v=q.push;st.push.i=i}
+    if(q.brk>st.brk.v){st.brk.v=q.brk;st.brk.i=i}
+    if(q.ty>st.up.v){st.up.v=q.ty;st.up.i=i} });
+  gb={f:F,pel,dir,n,td,st,ref0};
+}
+function grfAt(){ if(!gb) return -1; return Math.max(0,Math.min(gb.n-1,Math.round(vtime()*AFPS))); }
+const GC={push:'#ff9f43',brake:'#3ec6ff',hold:'#7be07b'};
+const ROLE_TXT={push:'밀어냄',brake:'제동',hold:'받침'};
+const STAGE_TXT={toe:'발가락 닿음',flat:'뒤꿈치까지 닿음',heel:'뒤꿈치 먼저 닿음'};
+const posName=f=>f.pos==='front'?'앞발':f.pos==='rear'?'뒷발':(f.kick?'축발':'지지발');
+const GL=38; // 그래프 왼쪽 여백(px)
+function rrect(x,y,w,h,r){ ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,w,h,r); else ctx.rect(x,y,w,h); }
+function outText(t,x,y,col,size,align){ ctx.font=`bold ${size}px sans-serif`; ctx.textAlign=align||'center'; ctx.lineJoin='round'; ctx.lineWidth=size/3.2; ctx.strokeStyle='rgba(0,0,0,.85)'; ctx.strokeText(t,x,y); ctx.fillStyle=col; ctx.fillText(t,x,y); }
+
+function drawGRF(){
+  if(!gb||!track||!$('grfOn').checked) return;
+  const i=grfAt(), q=gb.f[i]; drawGrfGraph(i); if(!q) return;
+  const W=cv.width,H=cv.height,s=sc(),R=q.ref||gdir(),d=gdir();
+  const k0=(+$('grfScale').value||100)/100, showTxt=$('grfLabel').checked, showPh=$('grfPhase').checked;
+  const feet=[0,1].filter(k=>q.ft[k]);
+  ctx.save();
+  feet.forEach(k=>{
+    const f=q.ft[k], col=GC[f.role], x1=f.x*W, y1=f.y*H, mag=Math.hypot(f.fx,f.fy);
+    if(showPh){
+      // 발(뒤꿈치→발가락)을 역할 색으로 칠하고, 지금 땅에 닿은 쪽을 흰 점으로 표시
+      const he=pose&&pose[k===0?29:30], to=pose&&pose[k===0?31:32];
+      if(he&&to&&(he.visibility??1)>.3&&(to.visibility??1)>.3){
+        ctx.save(); ctx.lineCap='round'; ctx.strokeStyle=col; ctx.lineWidth=8*s; ctx.shadowColor=col; ctx.shadowBlur=12*s;
+        ctx.beginPath(); ctx.moveTo(he.x*W,he.y*H); ctx.lineTo(to.x*W,to.y*H); ctx.stroke(); ctx.shadowBlur=0;
+        const dot=(p,on)=>{ ctx.beginPath(); ctx.arc(p.x*W,p.y*H,(on?7:4)*s,0,7); ctx.fillStyle=on?'#fff':col; ctx.fill(); ctx.lineWidth=2*s; ctx.strokeStyle=col; ctx.stroke(); };
+        dot(to,f.stage==='toe'); dot(he,f.stage==='flat'||f.stage==='heel');
+        ctx.restore();
+      }
+      if(f.stage) outText(STAGE_TXT[f.stage],x1,y1+24*s,f.pos==='front'&&f.role==='brake'?GC.brake:'#fff',12*s);
+    }
+    if(mag<.05) return;
+    const L=Math.min(3.2,mag)*95*s*k0, x2=x1+f.fx/mag*L, y2=y1-f.fy/mag*L;
+    arrow(x1,y1,x2,y2,col,(3.5+Math.min(3,mag)*1.6)*s);
+    if(showTxt){ const h=f.fx*R, val=f.role==='hold'?f.fy:Math.abs(h);
+      outText(`${posName(f)} ${ROLE_TXT[f.role]} ${val.toFixed(2)}`,x2,y2-8*s,col,13*s); }
+  });
+  const rec=gb.td&&gb.td.find(t=>i-t.i>=0&&i-t.i<=Math.round(.15*AFPS)&&q.ft[t.k]);
+  if(rec){ const f=q.ft[rec.k]; outText(rec.front?'👣 앞발 착지 · 제동 시작':'👣 착지',f.x*W,f.y*H+46*s,rec.front?GC.brake:'#fff',15*s); }
+  // 무게중심 ⊕
+  const cx=q.cx*W, cy=q.cy*H, r=9*s;
+  ctx.shadowColor='rgba(0,0,0,.8)'; ctx.shadowBlur=6*s;
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+  ctx.fillStyle='#111'; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,0,Math.PI/2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,Math.PI,Math.PI*1.5); ctx.fill();
+  ctx.restore();
+  // 왼쪽 아래: 밀어냄 · 제동 · 받침 계기판
+  ctx.save(); hud();
+  const air=!feet.length, lh=21*s, pad=10*s, x0=12*s;
+  const mt=[['밀어냄(추진)',air?0:q.push,GC.push,1.5],['제동(브레이크)',air?0:q.brk,GC.brake,1.5],['받침(수직)',air?0:q.ty,GC.hold,2.5]];
+  const extra=[]; if(air) extra.push('🦘 발이 떠 있어요 (공중)');
+  const pv=gb.pel[i]; if(pv!=null) extra.push(`허리 위치(발 기준) ${(pv*d*100).toFixed(0)}cm`);
+  ctx.font=`bold ${13*s}px sans-serif`; ctx.textAlign='left';
+  const lw=118*s, tw=96*s, vw=40*s, w=pad*2+lw+tw+vw, hh=pad*2+(mt.length+extra.length)*lh-4*s, y0=H-hh-12*s;
+  rrect(x0,y0,w,hh,10*s); ctx.fillStyle='rgba(0,0,0,.66)'; ctx.fill();
+  let y=y0+pad+14*s;
+  mt.forEach(([nm,v,c,mx])=>{
+    ctx.textAlign='left'; ctx.font=`bold ${13*s}px sans-serif`; ctx.fillStyle='#ddd'; ctx.fillText(nm,x0+pad,y);
+    ctx.fillStyle='rgba(255,255,255,.14)'; ctx.fillRect(x0+pad+lw,y-10*s,tw,9*s);
+    ctx.fillStyle=c; ctx.fillRect(x0+pad+lw,y-10*s,tw*Math.min(1,v/mx),9*s);
+    ctx.fillStyle='#fff'; ctx.textAlign='right'; ctx.fillText(v.toFixed(2),x0+w-pad,y); y+=lh; });
+  ctx.textAlign='left'; extra.forEach(t=>{ ctx.fillStyle='#cfd6df'; ctx.fillText(t,x0+pad,y); y+=lh; });
+  // 오른쪽 아래: 색 범례
+  if($('grfLeg').checked){
+    const items=[['밀어냄(추진)','뒷발·축발이 땅을 밀어요',GC.push],['제동(브레이크)','앞발이 나아가는 힘을 막아요',GC.brake],['받침','아래에서 받쳐요',GC.hold]];
+    ctx.font=`bold ${12*s}px sans-serif`;
+    const bw=Math.max(...items.map(it=>ctx.measureText(it[0]+'  '+it[1]).width))+38*s, bh=items.length*19*s+12*s, bx=W-bw-12*s, by=H-bh-12*s;
+    rrect(bx,by,bw,bh,10*s); ctx.fillStyle='rgba(0,0,0,.66)'; ctx.fill();
+    items.forEach(([a,b,c],j)=>{ const yy=by+20*s+j*19*s; ctx.fillStyle=c; ctx.beginPath(); ctx.arc(bx+15*s,yy-4*s,5.5*s,0,7); ctx.fill();
+      ctx.textAlign='left'; ctx.fillStyle=c; ctx.fillText(a,bx+27*s,yy); const aw=ctx.measureText(a+'  ').width; ctx.fillStyle='#cfd6df'; ctx.font=`${12*s}px sans-serif`; ctx.fillText(b,bx+27*s+aw,yy); ctx.font=`bold ${12*s}px sans-serif`; });
+  }
+  ctx.restore();
+}
+
+function drawGrfGraph(i){
+  const c=$('grfG'); if(!gb||!$('grfOn').checked){ c.style.display='none'; return; }
+  c.style.display='block';
+  const dpr=Math.min(2,window.devicePixelRatio||1), cw=Math.max(280,c.clientWidth||720), ch=206;
+  if(c.width!==Math.round(cw*dpr)||c.height!==Math.round(ch*dpr)){ c.width=Math.round(cw*dpr); c.height=Math.round(ch*dpr); }
+  const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0);
+  g.fillStyle='#0a0d11'; g.fillRect(0,0,cw,ch);
+  const n=gb.n, F=gb.f, AF=AFPS, L=GL, w=cw-L-6, X=k=>L+k/Math.max(1,n-1)*w, bw=Math.max(1,w/n+.4);
+  const T1=18,B1=68,T2=84,B2=160,Zy=(T2+B2)/2, BOT=B2+27;
+  let mxV=2,mxH=1; F.forEach(q=>{ if(!q||!(q.ft[0]||q.ft[1])) return; mxV=Math.max(mxV,q.ty); mxH=Math.max(mxH,q.push,q.brk); });
+  mxV*=1.05; mxH*=1.12;
+  const Y1=v=>B1-Math.min(v,mxV)/mxV*(B1-T1);
+  g.fillStyle='rgba(255,255,255,.04)'; g.fillRect(L,T1,w,B1-T1); g.fillRect(L,T2,w,B2-T2);
+  g.font='10px sans-serif'; g.textAlign='right'; g.fillStyle='#8b98a8'; g.lineWidth=1;
+  g.setLineDash([3,4]); g.strokeStyle='rgba(255,255,255,.25)';
+  g.beginPath(); g.moveTo(L,Y1(1)); g.lineTo(L+w,Y1(1)); g.stroke(); g.fillText('1배',L-4,Y1(1)+3);
+  g.setLineDash([]); g.fillText('0',L-4,B1+3);
+  g.strokeStyle='rgba(255,255,255,.45)'; g.beginPath(); g.moveTo(L,Zy); g.lineTo(L+w,Zy); g.stroke(); g.fillText('0',L-4,Zy+3);
+  g.textAlign='left'; g.fillStyle=GC.hold; g.fillText('받침 (1배 = 체중)',L+4,T1+11);
+  g.fillStyle=GC.push; g.fillText('▲ 밀어냄(추진)',L+4,T2+11); g.fillStyle=GC.brake; g.fillText('▼ 제동(브레이크)',L+4,B2-4);
+  F.forEach((q,k)=>{ if(!q||!(q.ft[0]||q.ft[1])) return; const x=X(k)-bw/2;
+    g.fillStyle=GC.hold; const y=Y1(q.ty); g.fillRect(x,y,bw,B1-y);
+    if(q.push>0){ const y2=Zy-Math.min(mxH,q.push)/mxH*(Zy-T2); g.fillStyle=GC.push; g.fillRect(x,y2,bw,Zy-y2); }
+    if(q.brk>0){ const y2=Zy+Math.min(mxH,q.brk)/mxH*(B2-Zy); g.fillStyle=GC.brake; g.fillRect(x,Zy,bw,y2-Zy); } });
+  // 발별 접지 띠 (색 = 그 순간 역할)
+  [['왼발',0],['오른발',1]].forEach(([nm,k])=>{ const y=B2+7+k*10; g.fillStyle='#8b98a8'; g.textAlign='right'; g.font='9px sans-serif'; g.fillText(nm,L-4,y+6);
+    F.forEach((q,j)=>{ const f=q&&q.ft[k]; if(!f) return; g.fillStyle=GC[f.role]; g.fillRect(X(j)-bw/2,y,bw,7); }); });
+  // 착지 표시 (앞발 착지 = 제동 시작)
+  (gb.td||[]).forEach(t=>{ const x=X(t.i); g.strokeStyle=t.front?GC.brake:'rgba(255,255,255,.3)'; g.lineWidth=t.front?1.5:1; g.beginPath(); g.moveTo(x,T2); g.lineTo(x,BOT); g.stroke();
+    if(t.front){ g.fillStyle=GC.brake; g.font='9px sans-serif'; g.textAlign='center'; g.fillText('👣',x,T2-3); } });
+  // 구간 반복
+  if(loopA!=null){ const xa=X(loopA*AF), xb=loopB!=null?X(loopB*AF):null;
+    if(xb!=null){ g.fillStyle='rgba(255,255,255,.1)'; g.fillRect(xa,T1,xb-xa,BOT-T1); }
+    g.fillStyle='#fff'; g.fillRect(xa-1,T1,2,BOT-T1); if(xb!=null) g.fillRect(xb-1,T1,2,BOT-T1);
+    g.font='bold 10px sans-serif'; g.textAlign='left'; g.fillText('A',xa+3,T1+9); if(xb!=null){ g.textAlign='right'; g.fillText('B',xb-3,T1+9); } }
+  // 시간 눈금
+  const dur=(n-1)/AF;
+  if(dur>0){ const stp=dur/(w/46), st=[1,2,5,10,20,30,60].find(v=>v>=stp)||60;
+    g.fillStyle='#8b98a8'; g.font='9px sans-serif'; g.textAlign='center';
+    for(let t=0;t<=dur;t+=st) g.fillText(t+'s',L+t/dur*w,ch-3); }
+  // 현재 위치
+  const xc=X(i); g.strokeStyle='#fff'; g.lineWidth=2; g.beginPath(); g.moveTo(xc,T1-4); g.lineTo(xc,BOT); g.stroke();
+  const q=F[i], on=q&&(q.ft[0]||q.ft[1]);
+  g.font='bold 11px sans-serif'; g.textAlign='right'; g.fillStyle='#fff';
+  g.fillText(`${(i/AF).toFixed(2)}초`+(q?(on?`  밀어냄 ${q.push.toFixed(2)} · 제동 ${q.brk.toFixed(2)} · 받침 ${q.ty.toFixed(2)}`:'  🦘 공중'):''),cw-6,11);
+}
+let gDrag=false;
+function gSeek(e){ if(!gb) return; const r=$('grfG').getBoundingClientRect(), w=r.width-GL-6, k=Math.max(0,Math.min(1,(e.clientX-r.left-GL)/w)); gSeekT(k*(gb.n-1)/AFPS); }
+$('grfG').addEventListener('pointerdown',e=>{ gDrag=true; try{$('grfG').setPointerCapture(e.pointerId)}catch(_){} gSeek(e); });
+$('grfG').addEventListener('pointermove',e=>{ if(gDrag) gSeek(e); });
+['pointerup','pointercancel'].forEach(ev=>$('grfG').addEventListener(ev,()=>{gDrag=false}));
+
+function refreshGrfRep(){
+  const el=$('grfRep');
+  if(!gb||!kin||!$('grfOn').checked){ el.innerHTML=''; $('grfG').style.display='none'; $('grfTools').hidden=true; return; }
+  $('grfTools').hidden=false;
+  const F=gb.f, AF=AFPS, st=gb.st, d=gdir(), gr=q=>q&&(q.ft[0]||q.ft[1]);
+  const T=i=>(i/AF).toFixed(2)+'초', link=i=>`data-t="${Math.max(0,i/AF-.15)}"`;
+  const tot=st.push.imp+st.brk.imp, pp=tot>.02?Math.round(st.push.imp/tot*100):null;
+  let html=`<div class="fchip" style="cursor:default"><b>📊 지면반력 요약</b> <span class="seq">(체중 1배 = 내 체중 · 칸을 누르면 그 순간으로 이동)</span>`
+    +`<div class="kpis">`
+    +`<div class="kpi" style="--c:${GC.push}" ${link(st.push.i)}><small>🟧 밀어냄 최대</small><b>${st.push.v.toFixed(2)}배</b><small>${T(st.push.i)}</small></div>`
+    +`<div class="kpi" style="--c:${GC.brake}" ${link(st.brk.i)}><small>🟦 제동 최대</small><b>${st.brk.v.toFixed(2)}배</b><small>${T(st.brk.i)}</small></div>`
+    +`<div class="kpi" style="--c:${GC.hold}" ${link(st.up.i)}><small>🟩 받침 최대</small><b>${st.up.v.toFixed(2)}배</b><small>${T(st.up.i)}</small></div>`
+    +`</div>`
+    +(pp==null?'':`<div class="split"><i style="width:${pp}%;background:${GC.push}"></i><i style="width:${100-pp}%;background:${GC.brake}"></i></div><div class="seq">힘의 양(세기×시간): 🟧 밀어냄 ${pp}% · 🟦 제동 ${100-pp}%. 이동이 많은 동작은 밀어냄이, 멈추고 버티는 동작은 제동이 커져요.</div>`)
+    +`</div>`;
+  // 앞발 착지 → 발가락부터 닿는지, 뒤꿈치가 닿는 시간, 제동의 세기
+  const tds=(gb.td||[]).filter(t=>t.front).sort((a,b)=>b.brk-a.brk).slice(0,4).sort((a,b)=>a.i-b.i);
+  tds.forEach(t=>{
+    const win=Math.min(gb.n-1,t.i+Math.round(.7*AF)), pkOf=id=>{ const S=kin.spd[id]; if(!S) return null; let bi=t.i,bv=0; for(let i=t.i;i<=win;i++) if(S[i]>bv){bv=S[i];bi=i} return bv>0?{i:bi,v:bv}:null; };
+    const hand=[15,16].map(pkOf).filter(Boolean).sort((a,b)=>b.v-a.v)[0];
+    const seq=[['무릎',pkOf(t.k===0?25:26)],['허리',pkOf(33)],['상체',pkOf(34)],['손',hand]].filter(x=>x[1]);
+    const shape=t.stage==='toe'?(t.heelAt!=null?`발가락부터 밟고 ${((t.heelAt-t.toeAt)/AF).toFixed(2)}초 뒤 뒤꿈치까지 닿아요`:'발가락부터 밟았어요'):t.stage==='flat'?'발바닥 전체가 한꺼번에 닿았어요':t.stage==='heel'?'뒤꿈치부터 닿았어요 (발가락부터 밟으면 더 잘 멈춰요)':'';
+    const brake=t.brk>.08?`🟦 제동 ${t.brk.toFixed(2)}배 · 닿은 뒤 ${((t.brkAt-t.i)/AF).toFixed(2)}초에 가장 세게 버텨요`:'🟦 제동이 거의 없어요 (미끄러지듯 닿아요)';
+    const ok=t.stage==='toe'&&t.brk>.15;
+    html+=`<div class="fchip" ${link(t.i)}><b>👣 앞발 착지 ${T(t.i)}</b> ${ok?'✅':''}<br>${shape?shape+'<br>':''}${brake}`
+      +(seq.length?`<div class="seq">착지 후 가장 빨라진 시점: `+seq.map(([nm,p])=>`${nm} +${((p.i-t.i)/AF).toFixed(2)}초`).join(' → ')+` (발→무릎→허리→상체→손 순서로 늦어질수록 힘이 위로 잘 이어져요)</div>`:'')+`</div>`;
+  });
+  if(!tds.length) html+=`<div class="fchip" style="cursor:default"><b>👣 앞발 착지</b><br>앞발이 새로 닿는 장면을 찾지 못했어요. 옆에서 찍고 발이 화면에 다 보이면 더 잘 잡혀요.</div>`;
+  const top=kin.chains.slice().sort((a,b)=>b.peak-a.peak)[0];
+  if(top){
+    const iE=top.iE; let best=-1,bv=0;
+    for(let i=Math.max(0,iE-Math.round(AF*.6));i<=iE;i++){ const q=F[i]; if(gr(q)&&Math.abs(q.tx)>bv){bv=Math.abs(q.tx);best=i} }
+    if(best<0) best=Math.max(0,iE-Math.round(AF*.2));
+    const q=F[best];
+    if(gr(q)){
+      const R=q.ref||d, ks=[0,1].filter(k=>q.ft[k]);
+      const row=k=>{ const f=q.ft[k], h=f.fx*R, c=GC[f.role];
+        const what=f.role==='push'?`땅을 ${Math.abs(h).toFixed(2)}만큼 밀어 몸을 보내요`:f.role==='brake'?`${Math.abs(h).toFixed(2)}만큼 버텨요 (제동)`:'주로 아래에서 받쳐요';
+        return `<span style="color:${c}">●</span> ${posName(f)}: 위 ${f.fy.toFixed(2)} · ${what}`; };
+      html+=`<div class="fchip" ${link(best)}><b>🦶 ${top.name} 순간의 발 (${T(best)})</b><br>${ks.map(row).join('<br>')}<div class="seq">숫자는 체중의 몇 배예요. 동작 직전 0.6초 안에서 땅을 가장 센 순간이에요.</div></div>`;
+    }
+    const a=Math.max(0,iE-Math.round(AF*.7)), b=Math.min(gb.n-1,iE+Math.round(AF*.5));
+    let v0=null; for(let i=a;i<=b;i++) if(gb.pel[i]!=null){v0=gb.pel[i]*d;break}
+    if(v0!=null){
+      let mxv=-1e9,mi=a; for(let i=a;i<=b;i++) if(gb.pel[i]!=null&&gb.pel[i]*d>mxv){mxv=gb.pel[i]*d;mi=i}
+      let mnv=1e9; for(let i=mi;i<=b;i++) if(gb.pel[i]!=null&&gb.pel[i]*d<mnv) mnv=gb.pel[i]*d;
+      const fwd=(mxv-v0)*100, back=(mxv-mnv)*100;
+      if(fwd>1.5) html+=`<div class="fchip" ${link(mi)}><b>🔄 허리 앞뒤 움직임</b><br>발 기준으로 허리가 앞으로 ${fwd.toFixed(0)}cm 나갔다가(${T(mi)})${back>1.5?` ${back.toFixed(0)}cm 되돌아와요`:' 그대로 있어요'}</div>`;
+      else html+=`<div class="fchip" style="cursor:default"><b>🔄 허리 앞뒤 움직임</b><br>허리는 발 위에서 거의 앞뒤로 안 움직였어요 (${fwd.toFixed(0)}cm)</div>`;
+    }
+  }
+  el.innerHTML=html+'<div class="sub">카드를 누르면 그 순간으로 이동해요. 그래프는 누른 채 끌면 영상이 따라와요.</div>';
+  drawGrfGraph(grfAt());
+}
+$('grfRep').onclick=e=>{ const c=e.target.closest('[data-t]'); if(!c) return; gSeekT(parseFloat(c.dataset.t)); };
+
+/* 이동 · 안내 · 내보내기 */
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('show'),2000); }
+function gSeekT(t){ if(!video.src) return; fz=null; stopClip(); video.pause(); video.currentTime=Math.max(0,Math.min(video.duration||0,t)); }
+function needGb(){ if(gb) return true; toast('먼저 “지면반력·무게중심 표시”를 켜서 분석해 주세요'); return false; }
+function jumpTd(dir,frontOnly){
+  if(!needGb()) return;
+  const t=video.currentTime*AFPS, list=(gb.td||[]).filter(x=>!frontOnly||x.front);
+  const c=dir>0?list.find(x=>x.i>t+1.5):list.slice().reverse().find(x=>x.i<t-1.5);
+  if(!c){ toast(dir>0?'이후 앞발 착지가 없어요':'이전 앞발 착지가 없어요'); return; }
+  gSeekT(c.i/AFPS);
+}
+$('evPrev').onclick=()=>jumpTd(-1,true);
+$('evNext').onclick=()=>jumpTd(1,true);
+$('evBrake').onclick=()=>{ if(needGb()) gSeekT(gb.st.brk.i/AFPS); };
+$('evPush').onclick=()=>{ if(needGb()) gSeekT(gb.st.push.i/AFPS); };
+function dl(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500); }
+const baseName=()=>(fileName||'video').replace(/\.[^.]+$/,'');
+$('grfCsv').onclick=()=>{
+  if(!needGb()) return;
+  const rows=[['시간(초)','프레임','진행방향(1=오른쪽 -1=왼쪽)','몸 속도(m/s)','수평힘 합(체중배·진행방향+)','수직힘 합(체중배)','밀어냄(체중배)','제동(체중배)','허리위치(cm·발기준)','왼발 접지','왼발 역할','왼발 발모양','오른발 접지','오른발 역할','오른발 발모양']];
+  gb.f.forEach((q,i)=>{ if(!q) return; const a=q.ft[0], b=q.ft[1], p=gb.pel[i];
+    rows.push([(i/AFPS).toFixed(3),i,q.ref,(q.vx||0).toFixed(3),(q.tx*q.ref).toFixed(3),q.ty.toFixed(3),q.push.toFixed(3),q.brk.toFixed(3),p!=null?(p*gdir()*100).toFixed(1):'',
+      a?1:0,a?ROLE_TXT[a.role]:'',a?(STAGE_TXT[a.stage]||''):'', b?1:0,b?ROLE_TXT[b.role]:'',b?(STAGE_TXT[b.stage]||''):'']); });
+  dl(new Blob(['\ufeff'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv;charset=utf-8'}),'지면반력_'+baseName()+'.csv');
+  toast('CSV를 저장했어요 (엑셀에서 열 수 있어요)');
+};
+$('grfPng').onclick=()=>{ if(!needGb()) return; drawGrfGraph(grfAt()); $('grfG').toBlob(b=>{ if(b) dl(b,'지면반력그래프_'+baseName()+'.png'); },'image/png'); };
+
+$('grfOn').onchange=async()=>{
+  if($('grfOn').checked&&!track&&video.src) await busyRun(()=>analyzeStudent());
+  refreshGrfRep(); render();
+};
+$('grfDir').onchange=()=>{ if(kin&&track){ try{ computeBody(); }catch(e){ console.error(e); } } refreshGrfRep(); render(); };
+['grfLabel','grfPhase','grfLeg'].forEach(id=>$(id).onchange=render);
+$('grfScale').oninput=render;
+$('shiftOn').onchange=async()=>{ if($('shiftOn').checked&&!track&&video.src) await busyRun(()=>analyzeStudent()); render(); };
+/* end grf */
+
+/* ---------- 코칭 진단: 왜 약한지 + 연습법 ---------- */
+const COACH={
+  order:{why:'힘은 발 → 허리 → 어깨 → 팔 순서로 올라가야 커져요. 지금은 팔·다리 끝이 먼저 나가서 아래에서 올라오는 힘이 중간에서 끊겨요.',
+    fix:['아주 천천히(한 동작 4초) 하면서 "발로 땅 밀기 → 허리 → 어깨 → 주먹" 순서를 입으로 말하며 연습','0.25배속으로 다시 재생해서 힘의 흐름 선이 아래에서 위로 가는지 확인','처음엔 팔 힘을 완전히 빼고 몸통만 돌려 보고, 팔은 마지막에 튕겨 나가게 하기']},
+  lower:{why:'팔·어깨 근육은 작아서 다리와 허리의 힘을 빌려야 세져요. 지금은 하체·허리가 거의 안 움직이고 팔로만 하고 있어요.',
+    fix:['뒷발바닥으로 바닥을 비틀어 밀면서 지르기·막기','허리에 손을 얹고 허리가 먼저 도는지 느끼며 천천히 반복','스쿼트로 내려갔다가 일어나면서 지르기 (다리 펴는 힘의 타이밍 익히기)']},
+  amp:{why:'힘이 몸에서 손끝으로 갈수록 점점 빨라져야(채찍처럼) 센데, 중간에서 속도가 안 붙어요.',
+    fix:['수건 끝을 잡고 채찍처럼 휘둘러 몸통→팔→손 순서의 느낌 익히기','팔꿈치는 몸 가까이서 출발하고 끝에서만 쭉 펴기','가벼운 고무밴드를 허리에 걸고 허리를 먼저 돌린 뒤 팔 뻗기']},
+  stop:{why:'동작 끝에서 몸이 "탁" 멈춰야 힘이 상대에게 전달돼요. 끝에서도 계속 흘러가면 힘이 밖으로 새요.',
+    fix:['끝 동작에서 1초 멈추고 균형이 흔들리는지 확인','끝나는 순간에만 주먹을 꽉 쥐고 몸통·엉덩이를 단단히 조이기 (긴장-이완 연습)','미트나 종이를 매달아 "맞히고 멈추기" 연습']},
+  noground:{why:'땅을 밀지 않으면 몸통과 팔이 힘을 받을 곳이 없어요. 앞뒤로 땅을 미는 힘이 거의 보이지 않아요.',
+    fix:['뒷발로 바닥을 뒤로 쓸어내듯 밀면서 지르기','벽에 손을 대고 뒷발로 벽을 밀듯 체중을 앞으로 보내기','한 걸음 이동하며 지르기로 체중 이동 느낌 익히기']},
+  rear:{why:'뒷발이 앞으로 밀어주는 힘이 약해서 몸 전체의 힘이 앞으로 잘 안 나가요.',
+    fix:['뒷발바닥 전체로 바닥을 누르고 뒷무릎을 펴면서 앞으로 보내기','런지 자세에서 뒷발로 밀어 일어나기 10회']},
+  brake:{why:'앞발이 뒤로 버텨 주지 못하면 몸이 앞으로 쏠리면서 힘이 땅으로 빠져나가요.',
+    fix:['지르기 끝에서 앞발로 버티며 1초 정지 (앞무릎이 발끝을 넘지 않게)','앞발 아래에 종이를 깔고 끝까지 밀리지 않게 버티기']},
+  pelvis:{why:'허리가 앞으로 많이 밀려 나가면 중심이 앞발 밖으로 빠져 균형이 무너지고, 되돌아오는 데도 힘이 낭비돼요.',
+    fix:['거울로 머리 위치를 보며 지르기 (머리가 앞으로 안 나가게)','엉덩이를 살짝 뒤로 당긴다는 느낌으로 서기를 유지']},
+  widthN:{why:'서기가 좁으면 땅을 밀 받침이 작아서 흔들리고 힘을 쓰기 어려워요. (서기 종류에 따라 기준은 달라져요)',
+    fix:['바닥에 테이프로 발 위치를 표시하고 같은 폭으로 반복','서기 자세로 10초 버티기 × 3세트']},
+  widthW:{why:'서기가 너무 넓으면 다리가 펴져서 땅을 누르기 힘들고 이동이 느려져요. (서기 종류에 따라 기준은 달라져요)',
+    fix:['발 위치를 한 뼘 줄여 보고 무릎이 굽혀지는지 확인','바닥 테이프로 정확한 서기 폭 표시해서 반복']},
+  knee:{why:'무릎이 거의 펴져 있으면 서기가 높아서 땅을 누르는 힘을 못 쓰고 뒤에서 밀려요.',
+    fix:['벽 스쿼트 10초 × 3세트','서기 자세에서 앞무릎을 발끝 방향으로 굽히고 5초 버티기']},
+  lean:{why:'상체가 기울면 몸의 중심이 발 위에서 벗어나 힘이 줄고 균형이 흔들려요.',
+    fix:['머리 위에 수건이나 책을 올리고 서기·지르기 해 보기','옆모습 영상에서 어깨-엉덩이-발이 일직선인지 확인']},
+  sway:{why:'중심이 크게 흔들리면 땅에서 받은 힘이 몸통으로 전달되기 전에 새 버려요.',
+    fix:['한 발 서기 5초 × 3세트로 균형 키우기','느린 동작으로 중심이 위아래·앞뒤로 튀지 않게 연습']}
+};
+function coachEvents(){
+  const n=track.length, AF=AFPS, gap=Math.round(.8*AF), ev=[]; let gM=0;
+  kin.chains.forEach(c=>{ gM=Math.max(gM,kin.vmax[c.j[c.j.length-1]]); });
+  kin.chains.forEach(c=>{
+    const e=c.j[c.j.length-1], S=kin.spd[e], th=Math.max(.45*kin.vmax[e],.3*gM);
+    for(let i=2;i<n-2;i++) if(S[i]>=th&&S[i]>=S[i-1]&&S[i]>=S[i+1]&&S[i]>=S[i-2]&&S[i]>=S[i+2]) ev.push({c,i,v:S[i]});
+  });
+  ev.sort((a,b)=>b.v-a.v);
+  const pick=[]; ev.forEach(e=>{ if(pick.length<4&&pick.every(p=>Math.abs(p.i-e.i)>=gap)) pick.push(e); });
+  return pick.sort((a,b)=>a.i-b.i);
+}
+function diagEvent(ev){
+  const {c,i:iE}=ev, W=video.videoWidth,H=video.videoHeight,AF=AFPS,n=track.length,d=gdir(),F=[];
+  const hand=c.k==='rh'||c.k==='lh';
+  const R=(a,b)=>{const x=[];for(let k=Math.max(0,a);k<=Math.min(n-1,b);k++)x.push(k);return x};
+  const P=(i,id)=>{const l=track[i]&&track[i].lm; if(!l) return null; const q=vl(l,id); return q&&q.visibility>.3?{x:q.x*W,y:q.y*H}:null};
+  const add=(lv,key,title,extra,o)=>F.push({lv,key,title,extra:extra||'',t:(o&&o.t!=null?o.t:iE/AF),marks:(o&&o.marks)||[]});
+  const endId=c.j[c.j.length-1];
+  let kind=c.name;
+  if(hand){ const side=c.k==='rh'?[12,14,16]:[11,13,15], A=P(iE,side[0]),B=P(iE,side[1]),C=P(iE,side[2]);
+    if(A&&B&&C){ const deg=ang(A,B,C).deg; kind=(c.k==='rh'?'오른팔 ':'왼팔 ')+(deg>=150?'지르기·뻗기':'막기·접은 팔')+` (팔꿈치 ${Math.round(deg)}°)`; } }
+  // 1) 힘 전달 순서
+  const E=c.peaks[c.peaks.length-1].v, st=Math.max(0,c.peaks.findIndex(p=>p.v>=.2*E));
+  const chainMarks=(badQ)=>c.j.map((id,q)=>({k:'j',id,txt:`${c.n[q]} ${(c.peaks[q].i/AF).toFixed(2)}초`,col:q===badQ?'#ff4d4f':null}));
+  if(c.bad>=0) add('bad','order',`${c.n[c.bad]}이(가) ${c.n[c.bad-1]}보다 먼저 나가요`,`(${c.n[c.bad]} ${(c.peaks[c.bad].i/AF).toFixed(2)}초 · ${c.n[c.bad-1]} ${(c.peaks[c.bad-1].i/AF).toFixed(2)}초)`,{t:c.peaks[c.bad].i/AF,marks:chainMarks(c.bad)});
+  else{
+    if(hand&&st>=1){ const fx=Math.min(st,3); add('warn','lower',`${c.n.slice(0,fx).join('·')}이(가) 거의 안 움직여요 (하체·허리를 안 써요)`,'',{marks:c.j.slice(0,fx).map((id,q)=>({k:'j',id,txt:c.n[q]+' 안 움직임'}))}); }
+    const pk=c.peaks.slice(st), amp=pk[0].v>1?E/pk[0].v:0;
+    if(amp>0&&amp<2.2&&pk.length>=3) add('warn','amp',`끝으로 갈수록 빨라지는 정도가 작아요 (${amp.toFixed(1)}배)`,'',{marks:chainMarks(-1)});
+    if(!(hand&&st>=1)&&amp>=2.2) add('ok','okorder',`힘이 순서대로 올라가며 끝에서 ${amp.toFixed(1)}배로 빨라져요`,'',{marks:chainMarks(-1)});
+  }
+  // 2) 끝 멈춤
+  if(hand){ const S=kin.spd[endId], pkv=S[iE]||1, j=Math.min(n-1,iE+Math.round(.15*AF)), r=S[j]/pkv;
+    if(r>.65) add('warn','stop','끝에서 멈추지 못하고 계속 흘러가요',`(0.15초 뒤에도 속도 ${Math.round(r*100)}% 유지)`,{t:j/AF,marks:[{k:'j',id:endId,txt:'아직 움직여요'}]});
+    else if(r<.3) add('ok','okstop','끝에서 "탁" 멈춰요','',{t:j/AF,marks:[{k:'j',id:endId,txt:'정지 좋아요'}]}); }
+  // 3) 지면반력
+  if(gb){
+    const a=Math.max(0,iE-Math.round(.6*AF));
+    let best=-1,bv=0; R(a,iE).forEach(k=>{const q=gb.f[k]; if(q&&(q.ft[0]||q.ft[1])&&Math.abs(q.tx)>bv){bv=Math.abs(q.tx);best=k}});
+    const q=best>=0?gb.f[best]:null;
+    if(q){ const ks=[0,1].filter(k=>q.ft[k]), tb=best/AF;
+      if(ks.length===2){ const Rr=q.ref||d, fK=q.ft[0].x*Rr>q.ft[1].x*Rr?0:1, rK=1-fK, fh=q.ft[fK].fx*Rr, rh=q.ft[rK].fx*Rr;
+        if(bv<.12) add('warn','noground','땅을 앞뒤로 미는 힘이 거의 안 보여요','',{t:tb,marks:[{k:'foot',w:'both',txt:'땅 미는 힘 약해요'}]});
+        else{ if(rh<.12) add('warn','rear','뒷발이 앞으로 밀어주는 힘이 약해요',`(뒷발 ${rh.toFixed(2)}배)`,{t:tb,marks:[{k:'foot',w:'rear',txt:'여기서 더 밀어요'}]});
+              if(fh>-.08) add('warn','brake','앞발이 뒤로 버텨 주지 못해요',`(앞발 ${fh.toFixed(2)}배)`,{t:tb,marks:[{k:'foot',w:'front',txt:'여기서 버텨요'}]});
+              if(rh>=.12&&fh<=-.08) add('ok','okgrf','뒷발로 밀고 앞발로 버티는 흐름이 좋아요',`(뒷발 ${rh.toFixed(2)}배 · 앞발 ${fh.toFixed(2)}배)`,{t:tb,marks:[{k:'foot',w:'rear',txt:'밀어줌'},{k:'foot',w:'front',txt:'버팀'}]}); } }
+      else if(ks.length===1&&bv<.12&&hand) add('warn','noground','땅을 미는 힘이 거의 안 보여요','',{t:tb,marks:[{k:'foot',w:'both',txt:'땅 미는 힘 약해요'}]});
+    }
+    const a2=Math.max(0,iE-Math.round(.7*AF)), b2=Math.min(n-1,iE+Math.round(.5*AF));
+    let v0=null; R(a2,b2).some(k=>{ if(gb.pel[k]!=null){v0=gb.pel[k]*d;return true} });
+    if(v0!=null){ let mx=-1e9,mk=iE; R(a2,b2).forEach(k=>{ if(gb.pel[k]!=null&&gb.pel[k]*d>mx){mx=gb.pel[k]*d;mk=k} });
+      const fw=mx-v0; if(fw>.2*Math.max(.4,legLenAt(iE,P))) add('warn','pelvis',`허리가 앞으로 ${Math.round(fw*100)}cm나 쏠려요`,'',{t:mk/AF,marks:[{k:'j',id:33,txt:`허리 ${Math.round(fw*100)}cm 쏠림`}]}); }
+  }
+  // 4) 서기 자세
+  const iS=Math.max(0,iE-Math.round(.2*AF)), lg=legLenAt(iS,P);
+  const hL=P(iS,23),hR=P(iS,24),kL=P(iS,25),kR=P(iS,26),aL=P(iS,27),aR=P(iS,28),sL=P(iS,11),sR=P(iS,12);
+  const q0=gb&&gb.f[iS], both=q0&&q0.ft[0]&&q0.ft[1], tS=iS/AF;
+  if(both&&aL&&aR&&lg>0){ const wr=Math.abs(aL.x-aR.x)*mpp/lg;
+    if(wr<.45) add('warn','widthN',`서기 폭이 좁아요 (다리 길이의 ${Math.round(wr*100)}%)`,'',{t:tS,marks:[{k:'ank'}]});
+    else if(wr>1.5) add('warn','widthW',`서기 폭이 너무 넓어요 (다리 길이의 ${Math.round(wr*100)}%)`,'',{t:tS,marks:[{k:'ank'}]});
+    if(hL&&hR&&kL&&kR){ const a1=ang(hL,kL,aL).deg, a2=ang(hR,kR,aR).deg;
+      if(Math.min(a1,a2)>165) add('warn','knee',`두 무릎이 모두 거의 펴져 있어요 (${Math.round(a1)}°, ${Math.round(a2)}°)`,'',{t:tS,marks:[{k:'knee'}]}); } }
+  if(hL&&hR&&sL&&sR){ const dx=((sL.x+sR.x)-(hL.x+hR.x))/2, dy=-((sL.y+sR.y)-(hL.y+hR.y))/2, lean=Math.atan2(dx*d,dy)*180/Math.PI;
+    if(lean>18) add('warn','lean',`상체가 앞으로 ${Math.round(lean)}° 숙여져요`,'',{t:tS,marks:[{k:'lean'}]});
+    else if(lean<-12) add('warn','lean',`상체가 뒤로 ${Math.round(-lean)}° 젖혀져요`,'',{t:tS,marks:[{k:'lean'}]});
+    else add('ok','oklean','상체가 곧게 서 있어요','',{t:tS,marks:[{k:'lean'}]}); }
+  if(gb&&lg>0){ const k0=Math.max(0,iE-AF),k1=Math.min(n-1,Math.round(iE+.3*AF)), xs=[], path=[]; R(k0,k1).forEach(k=>{const q=gb.f[k]; if(q){xs.push(q.cx*W*mpp); path.push({x:q.cx,y:q.cy})}});
+    if(xs.length>5){ const sw=Math.max(...xs)-Math.min(...xs); if(sw>(hand?.45:.6)*lg) add('warn','sway',`무게중심이 ${Math.round(sw*100)}cm나 움직여요`,'',{t:iE/AF,marks:[{k:'com',path,txt:'무게중심 이동'}]}); } }
+  return {c,iE,kind,F,win:[Math.max(0,iE/AF-.6),Math.min(video.duration||1e9,iE/AF+.4)]};
+}
+function legLenAt(i,P){ let t=0,k=0; [[23,25,27],[24,26,28]].forEach(([h,m,a])=>{const H=P(i,h),M=P(i,m),A=P(i,a); if(H&&M&&A){t+=Math.hypot(H.x-M.x,H.y-M.y)+Math.hypot(M.x-A.x,M.y-A.y);k++}}); return k&&mpp?t/k*mpp:0; }
+const CATS=[['힘 전달',['order','lower','amp','okorder']],['끝 마무리',['stop','okstop']],['땅 밀기',['noground','rear','brake','pelvis','okgrf']],['서기·균형',['widthN','widthW','knee','lean','sway','oklean']]];
+function scoreCat(F,keys){ const fs=F.filter(f=>keys.includes(f.key)); if(!fs.length) return null;
+  const bad=fs.filter(f=>f.lv==='bad').length, warn=fs.filter(f=>f.lv==='warn').length;
+  if(bad) return 30; if(warn) return Math.max(35,60-10*(warn-1)); return 90; }
+function showCoach(){
+  const el=$('coachRep');
+  if(!kin||!track||!mpp){ el.innerHTML='<div class="sub">분석 결과가 없어요. 영상을 분석한 뒤 다시 눌러 주세요.</div>'; return; }
+  const evs=coachEvents();
+  if(!evs.length){ el.innerHTML='<div class="sub">센 동작을 찾지 못했어요. 지르기·막기·차기가 크게 나오는 영상으로 해 보세요.</div>'; return; }
+  coachRes=evs.map(diagEvent); cm=null;
+  const cnt={}, goods={};
+  coachRes.forEach(r=>r.F.forEach(f=>{ if(f.lv==='ok') goods[f.key]=f.title; else cnt[f.key]=(cnt[f.key]||{n:0,t:f.title}), cnt[f.key].n+=(f.lv==='bad'?2:1); }));
+  const top=Object.values(cnt).sort((a,b)=>b.n-a.n).slice(0,3), gd=Object.values(goods).slice(0,4);
+  const L={bad:'🔴',warn:'🟡',ok:'🟢'};
+  let html='<div class="fchip" style="cursor:default"><b>🔧 부족한 점</b><br>'+(top.length?top.map(x=>'· '+x.t).join('<br>'):'큰 약점은 안 보여요')+'<br><b>👍 잘된 점</b><br>'+(gd.length?gd.map(t=>'· '+t).join('<br>'):'아직 뚜렷한 장점이 안 보여요')+'</div>';
+  coachRes.forEach((r,ei)=>{
+    const bars=CATS.map(([nm,keys])=>{ const sc=scoreCat(r.F,keys); const col=sc==null?'#555':sc>=80?'#52e07a':sc>=50?'#ffc53d':'#ff4d4f';
+      return `<div style="display:flex;align-items:center;gap:6px;font-size:12px;margin:2px 0"><span style="width:62px">${nm}</span><span style="flex:1;height:8px;background:#222;border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${sc==null?0:sc}%;background:${col}"></span></span><span style="width:26px;text-align:right;color:var(--sub)">${sc==null?'–':sc}</span></div>`; }).join('');
+    const body=r.F.length?r.F.map((f,fi)=>{ const info=COACH[f.key];
+      const btn=`<div style="margin:6px 0 2px"><button data-act="show" data-e="${ei}" data-f="${fi}">▶ 영상으로 확인</button> <button data-act="slow" data-e="${ei}" data-f="${fi}">🐢 느리게 보기</button></div>`;
+      const txt=info?`<b>왜 약해요?</b> ${info.why}<br><b>이렇게 연습해 보세요</b><br>${info.fix.map(t=>'· '+t).join('<br>')}`:'잘하고 있는 부분이에요. 영상에서 확인해 보세요.';
+      return `<details style="margin:4px 0"><summary>${L[f.lv]} <b>${f.title}</b> ${f.extra}</summary><div class="seq" style="margin-top:4px">${txt}${btn}</div></details>`;
+    }).join(''):'<div class="sub">이 동작에서 눈에 띄는 문제는 없어요.</div>';
+    html+=`<div class="fchip" style="cursor:default"><b>⏱ ${(r.iE/AFPS).toFixed(1)}초 · ${r.kind}</b> <button data-act="slow" data-e="${ei}" data-f="-1" style="padding:4px 8px;font-size:12px">🐢 동작 보기</button><div style="margin:6px 0">${bars}</div>${body}</div>`;
+  });
+  el.innerHTML='<div style="margin:4px 0"><button data-act="off">✕ 영상 표시 끄기</button></div>'+html+'<div class="sub">🔴 먼저 고칠 점 · 🟡 개선하면 좋은 점 · 🟢 잘하는 점. 막대는 이 동작의 항목별 점수예요. 제목을 누르면 이유·연습법이 펼쳐지고, [영상으로 확인]을 누르면 문제 부위가 영상 위에 표시돼요.</div>';
+}
+function stopClip(){ if(clipTimer){ clearInterval(clipTimer); clipTimer=null; video.pause(); video.playbackRate=parseFloat($('rate').value)||1; } }
+function playClip(t0,t1){
+  stopClip(); fz=null; video.pause();
+  const go=()=>{ video.removeEventListener('seeked',go); video.playbackRate=.25; video.play();
+    clipTimer=setInterval(()=>{ if(video.currentTime>=t1||video.paused||video.ended) stopClip(); },40); };
+  video.addEventListener('seeked',go); video.currentTime=Math.max(0,t0);
+}
+$('coachRep').onclick=e=>{
+  const b=e.target.closest('button[data-act]'); if(!b) return;
+  const act=b.dataset.act;
+  if(act==='off'){ stopClip(); cm=null; render(); return; }
+  const r=coachRes[+b.dataset.e]; if(!r) return; const f=r.F[+b.dataset.f];
+  stopClip(); fz=null;
+  if(f){ cm={marks:f.marks,col:f.lv==='ok'?'#52e07a':f.lv==='bad'?'#ff4d4f':'#ffc53d',key:f.key};
+    if(['noground','rear','brake','okgrf'].includes(f.key)){ $('grfOn').checked=true; refreshGrfRep(); }
+    if(['order','amp','lower','stop','okorder','okstop'].includes(f.key)){ $('forceOn').checked=true; $('forceSel').value=r.c.k; refreshForceRep(); }
+  } else cm=null;
+  $('cv').scrollIntoView({behavior:'smooth',block:'center'});
+  if(act==='show'&&f){ video.pause(); video.currentTime=Math.max(0,f.t); render(); }
+  else if(act==='slow'){ if(f&&f.t<r.win[0]) playClip(Math.max(0,f.t-.5),f.t+.4); else playClip(r.win[0],r.win[1]); }
+};
+function drawCoachMark(){
+  if(!cm||!pose||!track) return;
+  const W=cv.width,H=cv.height,s=sc(),d=gdir(),i=grfAt(), fr=gb&&gb.f[i];
+  const J=id=>{const q=vl(pose,id); return q&&q.visibility>.2?{x:q.x*W,y:q.y*H}:null};
+  let li=0;
+  const lab=(p,t,c)=>{ if(!t) return; const dy=-26*s-(li++%3)*15*s; ctx.save(); ctx.shadowBlur=0; ctx.font=`bold ${13*s}px sans-serif`; ctx.textAlign='center'; ctx.lineJoin='round'; ctx.lineWidth=4*s; ctx.strokeStyle='rgba(0,0,0,.85)'; ctx.strokeText(t,p.x,p.y+dy); ctx.fillStyle=c; ctx.fillText(t,p.x,p.y+dy); ctx.restore(); };
+  const ring=(p,c,t)=>{ if(!p) return; ctx.save(); ctx.lineWidth=4*s; ctx.strokeStyle=c; ctx.shadowColor='rgba(0,0,0,.7)'; ctx.shadowBlur=6*s; ctx.beginPath(); ctx.arc(p.x,p.y,17*s,0,7); ctx.stroke(); ctx.restore(); lab(p,t,c); };
+  const line=(a,b,c,w)=>{ ctx.save(); ctx.strokeStyle=c; ctx.lineWidth=(w||5)*s; ctx.lineCap='round'; ctx.shadowColor='rgba(0,0,0,.7)'; ctx.shadowBlur=5*s; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.restore(); };
+  ctx.save();
+  cm.marks.forEach(m=>{
+    const c=m.col||cm.col;
+    if(m.k==='j') ring(J(m.id),c,m.txt);
+    else if(m.k==='foot'&&fr){ const dr=fr.ref||d, fs=[0,1].filter(k=>fr.ft[k]).map(k=>fr.ft[k]).sort((a,b)=>b.x*dr-a.x*dr);
+      const pick=m.w==='both'?fs:m.w==='front'?fs.slice(0,1):fs.slice(-1);
+      if(fs.length===1&&m.w!=='both') fs.forEach(f=>ring({x:f.x*W,y:f.y*H},c,m.txt)); else pick.forEach(f=>ring({x:f.x*W,y:f.y*H},c,m.txt)); }
+    else if(m.k==='ank'){ const a=J(27),b=J(28); if(a&&b){ line(a,b,c,5); const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2; lab({x:cx,y:cy+40*s},`발 간격 ${Math.round(Math.abs(a.x-b.x)/W*video.videoWidth*mpp*100)}cm`,c); } }
+    else if(m.k==='knee'){ [[23,25,27],[24,26,28]].forEach(([h,k,a])=>{ const H0=J(h),K=J(k),A=J(a); if(H0&&K&&A) ring(K,c,Math.round(ang(H0,K,A).deg)+'°'); }); }
+    else if(m.k==='lean'){ const a=J(11),b=J(12),h1=J(23),h2=J(24); if(a&&b&&h1&&h2){ const sh={x:(a.x+b.x)/2,y:(a.y+b.y)/2}, hp={x:(h1.x+h2.x)/2,y:(h1.y+h2.y)/2};
+        ctx.save(); ctx.setLineDash([8*s,8*s]); ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.lineWidth=2*s; ctx.beginPath(); ctx.moveTo(hp.x,hp.y); ctx.lineTo(hp.x,hp.y-(hp.y-sh.y)*1.15); ctx.stroke(); ctx.restore();
+        line(hp,sh,c,6); const lean=Math.atan2((sh.x-hp.x)*d,-(sh.y-hp.y))*180/Math.PI; lab({x:sh.x,y:sh.y-8*s},`상체 ${lean>=0?'앞':'뒤'}로 ${Math.abs(Math.round(lean))}°`,c); } }
+    else if(m.k==='com'){ if(m.path&&m.path.length>1){ ctx.save(); ctx.strokeStyle=c; ctx.lineWidth=4*s; ctx.setLineDash([2*s,7*s]); ctx.lineCap='round'; ctx.beginPath(); m.path.forEach((p,q)=>q?ctx.lineTo(p.x*W,p.y*H):ctx.moveTo(p.x*W,p.y*H)); ctx.stroke(); ctx.restore(); }
+      if(fr) ring({x:fr.cx*W,y:fr.cy*H},c,m.txt); }
+  });
+  ctx.restore();
+}
+/* end coach */
+
+/* ---------- 사범 비교 (DTW 자동 박자 맞춤) ---------- */
+function angs(l,W,H){
+  return TRI.map(([a,b,c])=>{const A=l[a],B=l[b],C=l[c];
+    if(A.visibility<.5||B.visibility<.5||C.visibility<.5) return NaN;
+    return ang({x:A.x*W,y:A.y*H},{x:B.x*W,y:B.y*H},{x:C.x*W,y:C.y*H}).deg;});
+}
+function dtw(S,T){
+  const n=S.length,m=T.length,INF=1e15;
+  const cost=(i,j)=>{const a=S[i],b=T[j]; if(!a) return 0; if(!b) return 60;
+    let s=0,c=0; for(let k=0;k<8;k++){const x=a[k],y=b[k]; if(x===x&&y===y){s+=Math.abs(x-y);c++}} return c>=3?s/c:60;};
+  const D=new Float64Array(n*m).fill(INF), B=new Int8Array(n*m);
+  for(let j=0;j<m;j++) D[j]=cost(0,j);              // 사범 영상은 어디서 시작해도 됨
+  for(let i=1;i<n;i++) for(let j=0;j<m;j++){
+    let best=INF,bs=0;
+    for(let s=0;s<=3&&j-s>=0;s++){const v=D[(i-1)*m+j-s]+(s===0?3:0); if(v<best){best=v;bs=s}}
+    D[i*m+j]=best+cost(i,j); B[i*m+j]=bs;
+  }
+  let j=0,b=INF; for(let q=0;q<m;q++) if(D[(n-1)*m+q]<b){b=D[(n-1)*m+q];j=q}
+  const map=new Int32Array(n); for(let i=n-1;i>=0;i--){map[i]=j; if(i>0) j-=B[i*m+j]}
+  return {map,total:b/n};
+}
+function facing(tr,W,H,swap){
+  const nose=[],sh=[];
+  tr.forEach(f=>{let l=f.lm; if(!l) return; if(swap) l=SWP.map(i=>l[i]);
+    if([0,11,12,23,24].some(i=>l[i].visibility<.5)) return; const A=anchor(l,W,H); if(!A||!A.L) return;
+    nose.push((l[0].x*W-(l[11].x+l[12].x)/2*W)/A.L); sh.push(l[12].x-l[11].x);});
+  return {nose:med(nose)||0,sh:med(sh)||0};
+}
+function compare(){
+  const W=video.videoWidth,H=video.videoHeight,TW=tv.videoWidth,TH=tv.videoHeight;
+  const S=track.map(f=>f.lm?angs(f.lm,W,H):null);
+  const T=tTrack.map(f=>f.lm?angs(f.lm,TW,TH):null);
+  const SW=[1,0,3,2,5,4,7,6], Tm=T.map(a=>a&&SW.map(i=>a[i]));
+  const r1=dtw(S,T), r2=dtw(S,Tm), swap=r2.total<r1.total*0.93, R=swap?r2:r1, TT=swap?Tm:T;
+  const fS=facing(track,W,H,false), fT=facing(tTrack,TW,TH,swap);
+  const flip=(Math.abs(fS.nose)>.15&&Math.abs(fT.nose)>.15)?Math.sign(fS.nose)!==Math.sign(fT.nose):Math.sign(fS.sh)!==Math.sign(fT.sh);
+  const n=S.length, jd=new Float32Array(n*8).fill(NaN), fs=new Float32Array(n).fill(NaN);
+  const sum=new Float64Array(8),sgn=new Float64Array(8),cnt=new Float64Array(8);
+  let first=-1,last=-1;
+  for(let i=0;i<n;i++){
+    const a=S[i],b=TT[R.map[i]]; if(!a||!b) continue;
+    let s=0,c=0;
+    for(let k=0;k<8;k++){const d=a[k]-b[k]; if(d===d){jd[i*8+k]=Math.abs(d);sum[k]+=Math.abs(d);sgn[k]+=d;cnt[k]++;s+=Math.abs(d);c++}}
+    if(c>=3){fs[i]=Math.max(0,Math.min(100,100-s/c*1.5)); if(first<0)first=i; last=i;}
+  }
+  let tot=0,tc=0; fs.forEach(v=>{if(v>=0){tot+=v;tc++}});
+  let worst=null,wv=1e9;
+  for(let i=0;i+AFPS<=n;i+=2){let s=0,c=0; for(let q=i;q<i+AFPS;q++) if(fs[q]>=0){s+=fs[q];c++} if(c>AFPS/2&&s/c<wv){wv=s/c;worst=(i+AFPS/2)/AFPS}}
+  const span=last>first?R.map[last]-R.map[first]:0;
+  return {map:R.map,swap,flip,jd,fs,score:tc?tot/tc:0,
+    avg:[...sum].map((v,k)=>cnt[k]?v/cnt[k]:NaN), sign:[...sgn].map((v,k)=>cnt[k]?v/cnt[k]:0),
+    worst, tempo:span>2?(last-first)/span:1};
+}
+function tipFor(k,sg){
+  if(k<4) return sg<0?'더 쭉 펴 주세요':'조금 더 구부려 주세요';
+  if(k<6) return sg<0?'팔을 더 들어 주세요':'팔을 조금 내려 주세요';
+  return sg>0?'다리를 더 높이 들어 주세요':'상체를 더 세워 주세요';
+}
+function showReport(){
+  const R=$('report'); drawSG();
+  if(!cmp){R.hidden=true;return}
+  R.hidden=false;
+  const g=cmp.score, grade=g>=90?'🏆 완벽해요!':g>=80?'🥇 아주 좋아요':g>=65?'🥈 좋아요, 조금만 더!':'💪 연습이 더 필요해요';
+  const tp=cmp.tempo>1.1?`⏱ 템포: 사범보다 약 ${Math.round((cmp.tempo-1)*100)}% 느려요`:cmp.tempo<0.9?`⏱ 템포: 사범보다 약 ${Math.round((1-cmp.tempo)*100)}% 빨라요`:'⏱ 템포: 사범과 비슷해요 👍';
+  const order=[...Array(8).keys()].filter(k=>cmp.avg[k]>=0).sort((a,b)=>cmp.avg[b]-cmp.avg[a]);
+  const rows=order.map(k=>{const d=cmp.avg[k];return `<div class="jrow"><span>${JN[k]}</span><div class="jbar"><i style="width:${Math.min(100,d/45*100)}%;background:${diffCol(d)}"></i></div><em>${Math.round(d)}°</em></div>`}).join('');
+  const tips=order.filter(k=>cmp.avg[k]>12).slice(0,3).map(k=>`<li><b>${JN[k]}</b> 평균 ${Math.round(cmp.avg[k])}° 차이 → ${tipFor(k,cmp.sign[k])}</li>`).join('')||'<li>큰 차이 없이 아주 잘했어요 👏</li>';
+  R.innerHTML=`${(ppl&&ppl.sel.length>1)?`<div class="sub" style="color:var(--accent)">👤 ${ppl.active}번 분석 결과</div>`:''}<div class="repTop"><div class="big" style="color:${scoreCol(g)}">${Math.round(g)}<small>점</small></div>
+    <div><b>${grade}</b><div class="sub">사범 시범과의 동작 일치도</div><div class="sub">${tp}</div>${cmp.swap?'<div class="sub">↔ 반대쪽 다리/팔 동작으로 맞춰 비교했어요</div>':''}</div></div>
+    <div class="secS">관절별 평균 차이</div>${rows}
+    <div class="secS">코칭 포인트</div><ul>${tips}</ul>
+    ${cmp.worst!=null?`<span class="chip" id="worstChip" data-t="${cmp.worst}">⚠ 가장 차이 큰 순간 ${cmp.worst.toFixed(1)}초 보기</span>`:''}
+    <div class="sub" style="margin-top:8px">타임라인 아래 그래프: 초록=잘 맞음, 노랑=조금 다름, 빨강=많이 다름 (눌러서 이동)</div>`;
+}
+$('report').onclick=e=>{const c=e.target.closest('#worstChip'); if(!c) return; fz=null; video.pause(); video.currentTime=Math.max(0,parseFloat(c.dataset.t)-0.3);};
+function drawSG(){
+  const c=$('sg'); if(!cmp){c.hidden=true;return} c.hidden=false;
+  const dpr=window.devicePixelRatio||1, w=Math.round(c.clientWidth*dpr), h=Math.round(c.clientHeight*dpr); if(!w) return;
+  if(c.width!==w)c.width=w; if(c.height!==h)c.height=h;
+  const g=c.getContext('2d'), n=cmp.fs.length, d=video.duration||n/AFPS, bw=Math.max(1,w/(d*AFPS)+0.5);
+  g.clearRect(0,0,w,h);
+  for(let i=0;i<n;i++){const v=cmp.fs[i]; if(!(v>=0)) continue; const bh=Math.max(2,v/100*h); g.fillStyle=scoreCol(v); g.fillRect(i/AFPS/d*w,h-bh,bw,bh);}
+  g.fillStyle='#fff'; g.fillRect(video.currentTime/d*w-1*dpr,0,2*dpr,h);
+}
+$('sg').onclick=e=>{if(!video.duration)return; const r=$('sg').getBoundingClientRect(); fz=null; video.pause(); video.currentTime=(e.clientX-r.left)/r.width*video.duration;};
+
+async function runCompare(){
+  if(!video.src){$('tName').textContent+=' — 이제 원생 영상을 불러오고 [🔍 비교 분석]을 누르세요';return}
+  if(!tv.src){alert('사범 영상을 먼저 불러오세요.');return}
+  await busyRun(async()=>{
+    if(!track) await analyzeStudent(0,0.45);
+    if(!track||anaCancel) return;
+    if(!tTrack){ const r=await analyze(tv,'사범 영상',track?0.45:0,0.95); tTrack=r?cleanTrack(r,tv.videoWidth,tv.videoHeight):null; }
+    if(!tTrack||anaCancel) return;
+    setAna('동작 박자 자동으로 맞추는 중…',0.97); await new Promise(r=>setTimeout(r,30));
+    cmp=compare();
+    if(!poseOn){poseOn=true;$('poseBtn').classList.add('on')}
+  });
+  showReport(); render();
+}
+$('cmpBtn').onclick=runCompare;
+$('tfile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return; e.target.value='';
+  tTrack=null; cmp=null; showReport();
+  tv.src=URL.createObjectURL(f); tv.load();
+  try{ await new Promise((r,j)=>{tv.onloadedmetadata=r; tv.onerror=()=>j()}); }
+  catch(err){ alert('사범 영상을 열 수 없어요.'); return; }
+  $('tName').textContent='사범 영상: '+f.name;
+  runCompare();
+};
+
+/* ---------- 프리즈(도구 쓴 지점에서 자동 정지) ---------- */
+function holdMs(){return Math.max(0.5,parseFloat($('hold').value)||10)*1000}
+function points(){const o=[];anns.slice().sort((a,b)=>a.t-b.t).forEach(a=>{const g=o[o.length-1]; if(g&&a.t-g.t<=0.09) g.items.push(a); else o.push({t:a.t,items:[a]})});return o}
+const TN={pen:'✏️ 펜',line:'╱ 직선',dash:'┄ 점선',arrow:'➜ 화살표',circle:'◯ 원',angle:'📐 각도',text:'T 글자'};
+const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function annName(a){
+  if(a.type==='text') return 'T “'+(a.text.length>6?a.text.slice(0,6)+'…':a.text)+'”';
+  if(a.type==='angle') return '📐 '+Math.round(ang(a.pts[0],a.pts[1],a.pts[2]).deg)+'°';
+  return TN[a.type]||a.type;
+}
+/* 화면에서 그림 찾기 */
+function segD(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,L=dx*dx+dy*dy;let t=L?((p.x-a.x)*dx+(p.y-a.y)*dy)/L:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy)}
+function annBox(a){
+  const P=a.pts;
+  if(a.type==='text'){ const z=30*sc(); ctx.save(); ctx.font=`bold ${z}px sans-serif`; const w=ctx.measureText(a.text).width; ctx.restore();
+    return {x0:P[0].x,y0:P[0].y-z,x1:P[0].x+w,y1:P[0].y+z*.3}; }
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; P.forEach(q=>{x0=Math.min(x0,q.x);y0=Math.min(y0,q.y);x1=Math.max(x1,q.x);y1=Math.max(y1,q.y)});
+  return {x0,y0,x1,y1};
+}
+function annDist(a,p){
+  const P=a.pts;
+  if(a.type==='pen'){ if(P.length===1) return Math.hypot(p.x-P[0].x,p.y-P[0].y); let d=1e9; for(let i=1;i<P.length;i++) d=Math.min(d,segD(p,P[i-1],P[i])); return d; }
+  if(a.type==='angle') return Math.min(segD(p,P[0],P[1]),segD(p,P[1],P[2]));
+  if(a.type==='text'){ const b=annBox(a); return (p.x>=b.x0&&p.x<=b.x1&&p.y>=b.y0&&p.y<=b.y1)?0:1e9; }
+  if(a.type==='circle'){ const cx=(P[0].x+P[1].x)/2,cy=(P[0].y+P[1].y)/2,rx=Math.abs(P[1].x-P[0].x)/2||1,ry=Math.abs(P[1].y-P[0].y)/2||1;
+    const r=Math.hypot((p.x-cx)/rx,(p.y-cy)/ry); return Math.abs(r-1)*Math.min(rx,ry)*(r<1?.4:1); }
+  return segD(p,P[0],P[1]);
+}
+function hitAnn(p){ const r=cv.getBoundingClientRect(), thr=24*cv.width/r.width; let best=null,bd=thr;
+  anns.forEach(a=>{ if(!vis(a)) return; const d=annDist(a,p); if(d<bd){bd=d;best=a} }); return best; }
+function eraseAt(p){ const a=hitAnn(p); if(a){ anns=anns.filter(x=>x!==a); changed(); } }
+function drawSel(a){ const b=annBox(a),s=sc(),pd=14*s; ctx.save(); ctx.setLineDash([10*s,6*s]); ctx.lineWidth=3*s; ctx.strokeStyle='#fff';
+  ctx.shadowColor='#000'; ctx.shadowBlur=6*s; ctx.strokeRect(b.x0-pd,b.y0-pd,b.x1-b.x0+2*pd,b.y1-b.y0+2*pd); ctx.restore(); }
+function selectAnn(id){ selId=id; clearTimeout(selTimer); selTimer=setTimeout(()=>{selId=null;render()},1800); render(); }
+function changed(){refreshPoints();render()}
+function refreshPoints(){
+  const P=points(),d=video.duration||1;
+  $('marks').innerHTML=P.map(p=>`<i style="left:${p.t/d*100}%"></i>`).join('')+(loopA!=null?`<i class="lp" style="left:${loopA/d*100}%"></i>`:'')+(loopB!=null?`<i class="lp" style="left:${loopB/d*100}%"></i>`:'');
+  $('fzList').innerHTML=P.map(p=>`<div class="grp"><span class="chip g" data-t="${p.t}">⏸ ${p.t.toFixed(2)}s</span>`
+    +p.items.map(a=>`<span class="chip" data-id="${a.id}"><i class="dot" style="background:${esc(a.color)}"></i>${esc(annName(a))}<b data-del-id="${a.id}">✕</b></span>`).join('')
+    +(p.items.length>1?`<span class="chip" data-del-group="${p.t}">🗑 이 장면 전체</span>`:'')+'</div>').join('')
+    ||'<span class="sub">그림·글자·각도기를 쓴 장면이 프리즈 지점이 됩니다.</span>';
+}
+$('fzList').onclick=e=>{
+  const T=e.target, delId=T.closest('[data-del-id]'), delG=T.closest('[data-del-group]'), item=T.closest('[data-id]'), grp=T.closest('[data-t]');
+  if(!delId&&!delG&&!item&&!grp) return; fz=null;
+  if(delId){ const id=+delId.dataset.delId; anns=anns.filter(a=>a.id!==id); changed(); return; }
+  if(delG){ const t0=+delG.dataset.delGroup, g=points().find(p=>Math.abs(p.t-t0)<1e-6);
+    if(g){ const ids=new Set(g.items.map(a=>a.id)); anns=anns.filter(a=>!ids.has(a.id)); } changed(); return; }
+  if(item){ const a=anns.find(x=>x.id===+item.dataset.id); if(a){ video.pause(); video.currentTime=a.t; selectAnn(a.id); } return; }
+  video.pause(); video.currentTime=+grp.dataset.t;
+};
+function startFreeze(p){fz={p,phase:'seek',end:0,t0:performance.now()};video.pause();video.currentTime=p.t;lastT=p.t}
+function resume(){
+  const p=fz.p; fz=null; lastT=p.t;
+  if(video.duration-p.t<0.05) return;
+  skipZero=true; video.play().catch(()=>{});
+}
+function freezeStep(){
+  if(analyzing) return;
+  const now=performance.now();
+  if(fz){
+    if(fz.phase==='seek'){ if(!video.seeking||now-fz.t0>1500){fz.phase='hold';fz.end=now+holdMs()} }
+    else if(now>=fz.end) resume();
+    return;
+  }
+  const t=video.currentTime;
+  if(video.src&&$('autoFreeze').checked&&(!video.paused||video.ended)){
+    const p=points().find(p=>p.t>lastT+1e-4&&p.t<=t+0.02);
+    if(p){startFreeze(p);return}
+  }
+  lastT=t;
+}
+
+/* ---------- 피드백 완료 영상 저장 ---------- */
+let expCancelled=false, lastUrl=null;
+function pickMime(){return ['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m))}
+$('save').onclick=async()=>{
+  if(!video.src||analyzing) return;
+  if(!anns.length&&!cmp&&!(track&&trailSel.size)&&!(kin&&$('forceOn').checked)&&!(gb&&$('grfOn').checked)){alert('먼저 영상에 그림·글자를 넣거나, 궤적/비교 분석을 켜 주세요.');return}
+  const mime=pickMime(); if(!mime){alert('이 브라우저는 영상 저장을 지원하지 않아요. 최신 크롬/사파리를 사용해 주세요.');return}
+  const busy=on=>{document.body.classList.toggle('busy',on);$('save').disabled=on;$('expCancel').hidden=!on};
+  busy(true); fz=null; expCancelled=false; video.pause(); $('result').hidden=true;
+  let wl=null;
+  try{
+    try{wl=await navigator.wakeLock.request('screen')}catch(e){}
+    const W=cv.width,H=cv.height,k=Math.min(1,1280/Math.max(W,H));
+    const ec=document.createElement('canvas'); ec.width=Math.round(W*k); ec.height=Math.round(H*k);
+    const ex=ec.getContext('2d'), chunks=[];
+    const rec=new MediaRecorder(ec.captureStream(30),{mimeType:mime,videoBitsPerSecond:6e6});
+    rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    const stopped=new Promise(r=>rec.onstop=r);
+    const rate=parseFloat($('expRate').value), est=video.duration/rate+points().length*holdMs()/1000, t0=performance.now();
+    await new Promise(r=>{video.onseeked=r; video.currentTime=0; setTimeout(r,800)}); video.onseeked=null;
+    video.playbackRate=rate; lastT=-1;
+    const draw=()=>{const S=stabState();ex.setTransform(1,0,0,1,0,0);ex.fillStyle='#000';ex.fillRect(0,0,ec.width,ec.height);
+      ex.setTransform(k*S.z,0,0,k*S.z,ec.width/2*(1-S.z),ec.height/2*(1-S.z));ex.drawImage(video,-S.cx,-S.cy,W,H);
+      const sv=ctx;ctx=ex;paintOverlays();ctx=sv};
+    rec.start(500);
+    await video.play();
+    await new Promise(done=>{
+      const loop=()=>{
+        if(expCancelled) return done();
+        freezeStep(); draw();
+        $('expStatus').textContent=`저장 중 ${Math.min(99,Math.round((performance.now()-t0)/10/est))}% — 화면을 켜 둔 채 기다려 주세요`;
+        if(!fz&&video.paused&&(video.ended||video.duration-video.currentTime<0.06)) return setTimeout(done,400);
+        requestAnimationFrame(loop);
+      };
+      loop();
+    });
+    rec.stop(); await stopped;
+    if(expCancelled){$('expStatus').textContent='저장을 취소했어요.'}
+    else{
+      const blob=new Blob(chunks,{type:mime.split(';')[0]});
+      if(lastUrl) URL.revokeObjectURL(lastUrl);
+      lastUrl=URL.createObjectURL(blob);
+      $('resV').src=lastUrl; $('resA').href=lastUrl; $('resA').download='피드백완료영상.'+(mime.includes('mp4')?'mp4':'webm');
+      $('result').hidden=false; $('expStatus').textContent='완료! 아래 버튼을 눌러 저장하세요.';
+    }
+  }catch(err){ $('expStatus').textContent='저장 실패: '+err.message; }
+  finally{
+    if(wl&&wl.release) wl.release().catch(()=>{});
+    fz=null; video.pause(); video.playbackRate=parseFloat($('rate').value); busy(false);
+  }
+};
+$('expCancel').onclick=()=>{expCancelled=true};
+
+/* ---------- 루프 & 시간표시 ---------- */
+function tick(){
+  freezeStep();
+  const pl=fz?'⏭ 계속 재생':video.paused?'▶ 재생':'⏸ 일시정지';
+  if($('play').textContent!==pl) $('play').textContent=pl;
+  const bt=(fz&&fz.phase==='hold')?`⏸ ${Math.ceil((fz.end-performance.now())/1000)}초 후 계속`:'';
+  if($('badge').textContent!==bt){$('badge').textContent=bt;$('badge').hidden=!bt}
+  if(video.src&&!video.paused&&!analyzing&&!video.requestVideoFrameCallback){ detect(); render(); }
+  if(video.duration){
+    const ct=video.currentTime, fno='#'+Math.round(ct*FPS); if($('fno').textContent!==fno) $('fno').textContent=fno;
+    if(loopA!=null&&loopB!=null&&$('loopOn').checked&&!video.paused&&!fz&&!analyzing&&!clipTimer&&!document.body.classList.contains('busy')&&ct>=loopB){ lastT=loopA; video.currentTime=loopA; }
+    $('tcur').textContent=video.currentTime.toFixed(2);
+    $('seek').value=video.currentTime/video.duration*1000;
+    if(cmp&&video.currentTime!==lastSG){lastSG=video.currentTime;drawSG()}
+  }
+  requestAnimationFrame(tick);
+}
+tick();
+function onFrame(now,meta){ frameT=meta.mediaTime; if(!analyzing&&!video.paused){ detect(); render(); } video.requestVideoFrameCallback(onFrame); }
+if(video.requestVideoFrameCallback) video.requestVideoFrameCallback(onFrame);
+
+/* ---------- 이미지 저장 ---------- */
+$('shot').onclick=()=>{
+  if(!video.videoWidth) return;
+  const c=document.createElement('canvas'); c.width=cv.width; c.height=cv.height;
+  const x=c.getContext('2d'), S=stabState(); x.fillStyle='#000'; x.fillRect(0,0,c.width,c.height);
+  x.setTransform(S.z,0,0,S.z,c.width/2*(1-S.z),c.height/2*(1-S.z)); x.drawImage(video,-S.cx,-S.cy,c.width,c.height); x.drawImage(cv,0,0);
+  c.toBlob(b=>{const a=document.createElement('a'); a.href=URL.createObjectURL(b);
+    a.download='coaching_'+video.currentTime.toFixed(2)+'s.png'; a.click();},'image/png');
+};
+/* ---------- 편의기능: 구간 반복 · 단축키 · 설정 저장 · 끌어놓기 · 전체화면 ---------- */
+function openHelp(on){ $('help').hidden=!on; }
+$('helpBtn').onclick=()=>openHelp(true);
+$('helpClose').onclick=()=>openHelp(false);
+$('help').addEventListener('click',e=>{ if(e.target===$('help')) openHelp(false); });
+$('fsBtn').onclick=()=>{
+  const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
+  if(fsEl){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); return; }
+  const el=$('stageWrap'), f=el.requestFullscreen||el.webkitRequestFullscreen;
+  if(f) f.call(el); else toast('이 브라우저는 전체화면을 지원하지 않아요');
+};
+document.addEventListener('fullscreenchange',()=>setTimeout(layout,60));
+
+$('loopA').onclick=()=>{ if(!video.src){ toast('먼저 영상을 불러오세요'); return; } loopA=video.currentTime; if(loopB!=null&&loopB<=loopA) loopB=null; refreshPoints(); render(); toast(`구간 시작 A = ${loopA.toFixed(2)}초`); };
+$('loopB').onclick=()=>{ if(!video.src){ toast('먼저 영상을 불러오세요'); return; }
+  if(loopA==null){ toast('먼저 A(시작)를 정해 주세요'); return; }
+  if(video.currentTime<=loopA+.05){ toast('B(끝)는 A보다 뒤여야 해요'); return; }
+  loopB=video.currentTime; $('loopOn').checked=true; refreshPoints(); render(); toast(`구간 반복 ${loopA.toFixed(2)}~${loopB.toFixed(2)}초`); };
+$('loopClr').onclick=()=>{ loopA=loopB=null; $('loopOn').checked=false; refreshPoints(); render(); };
+
+document.addEventListener('keydown',e=>{
+  const t=e.target, tag=t&&t.tagName;
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA'||(t&&t.isContentEditable)){ if(e.key==='Escape'&&t.blur) t.blur(); return; }
+  if(tag==='BUTTON'&&(e.key===' '||e.key==='Enter')) return;
+  if(!$('help').hidden){ if(e.key==='Escape'||e.key==='?') openHelp(false); return; }
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){ e.preventDefault(); $('undo').click(); return; }
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  const k=e.key; let used=true;
+  if(k===' ') $('play').click();
+  else if(k==='ArrowLeft'||k===',') step(e.shiftKey?-10:-1);
+  else if(k==='ArrowRight'||k==='.') step(e.shiftKey?10:1);
+  else if(k==='ArrowUp'||k==='ArrowDown'){ const s=$('rate'), j=Math.max(0,Math.min(s.options.length-1,s.selectedIndex+(k==='ArrowUp'?1:-1)));
+    if(j!==s.selectedIndex){ s.selectedIndex=j; s.dispatchEvent(new Event('change',{bubbles:true})); toast('재생 속도 '+s.options[j].text); } }
+  else if(k==='Home') gSeekT(0);
+  else if(k==='['||k===']'){ if(gb) jumpTd(k===']'?1:-1,true); else toast('지면반력 표시를 켜면(G) 착지로 바로 이동할 수 있어요'); }
+  else if(k==='i'||k==='I') $('loopA').click();
+  else if(k==='o'||k==='O') $('loopB').click();
+  else if(k==='l'||k==='L'){ if(loopA!=null&&loopB!=null){ $('loopOn').click(); toast($('loopOn').checked?'구간 반복 켬':'구간 반복 끔'); } else toast('먼저 I·O 키로 구간 A·B를 정해 주세요'); }
+  else if(k==='g'||k==='G') $('grfOn').click();
+  else if(k==='f'||k==='F') $('forceOn').click();
+  else if(k==='c'||k==='C') $('shiftOn').click();
+  else if(k==='p'||k==='P') $('shot').click();
+  else if(k==='?'||k==='/') openHelp(true);
+  else used=false;
+  if(used) e.preventDefault();
+});
+// 버튼·선택 상자를 누른 뒤에도 스페이스·방향키가 재생 조작으로 동작하도록
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('button'); if(b) b.blur(); });
+document.addEventListener('change',e=>{ if(e.target&&e.target.tagName==='SELECT') e.target.blur(); });
+
+// 영상 끌어다 놓기
+document.addEventListener('dragover',e=>{ if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')){ e.preventDefault(); document.body.classList.add('drop'); } });
+document.addEventListener('dragleave',e=>{ if(!e.relatedTarget) document.body.classList.remove('drop'); });
+document.addEventListener('drop',e=>{ if(!(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length)) return; e.preventDefault(); document.body.classList.remove('drop');
+  const f=[...e.dataTransfer.files].find(x=>x.type.startsWith('video/')); if(f) openVideoFile(f); else toast('영상 파일을 놓아 주세요'); });
+
+// 설정 기억 (이 기기 브라우저에 저장)
+const SET_VAL=['angMode','hcm','qual','rate','expRate','width','hold','grfDir','grfScale','trailLen','color'];
+const SET_CHK=[...AGIDS,'wtOn','autoAngle','snap','always','autoFreeze','stab','grfLabel','grfLeg','grfPhase','skName','skRib','skHand','ghost','pip','scoreOn'];
+function saveSet(){ try{ const o={}; SET_VAL.forEach(id=>o[id]=$(id).value); SET_CHK.forEach(id=>o[id]=$(id).checked); localStorage.setItem('coachPro.v1',JSON.stringify(o)); }catch(e){} }
+function loadSet(){ try{
+  const o=JSON.parse(localStorage.getItem('coachPro.v1')||'null'); if(!o) return;
+  SET_VAL.forEach(id=>{ const el=$(id), v=o[id]; if(v==null||!el) return; if(el.tagName==='SELECT'&&![...el.options].some(op=>op.value===v)) return; el.value=v; });
+  SET_CHK.forEach(id=>{ if(typeof o[id]==='boolean'&&$(id)) $(id).checked=o[id]; });
+  video.defaultPlaybackRate=video.playbackRate=parseFloat($('rate').value)||1;
+}catch(e){} }
+document.addEventListener('change',saveSet);
+$('grfScale').addEventListener('change',saveSet);
+loadSet(); $('angPanel').hidden=!$('autoAngle').checked;
+
+</script>
+</body>
+</html>
