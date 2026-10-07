@@ -233,6 +233,7 @@ body.drop::after{content:'🎞 영상을 여기에 놓으세요';position:fixed;
       <option value="auto" selected>정밀도: 최고 (기본)</option><option value="lite">빠름</option>
       <option value="full">정밀</option><option value="heavy">최고 정밀 (느림)</option>
     </select>
+    <label class="chk"><input type="checkbox" id="farOn" checked> 🔭 멀리 있는 사람도 찾기 (느림)</label>
   </div>
   <div class="sub">영상 전체를 한 번 훑어 관절을 기록해요. 튀는 관절·좌우 뒤바뀜을 바로잡고, 손떨림도 같이 잡아줘요.</div>
   <div class="sub" id="stabInfo" style="color:var(--accent)"></div>
@@ -459,7 +460,7 @@ $('seek').oninput=e=>{ if(!video.duration) return; fz=null; video.pause(); video
 async function makeLM(kind='lite',mode='VIDEO',np=1){
   if(!fileset) fileset=await FilesetResolver.forVisionTasks(MP_WASM);
   const opt=dg=>({baseOptions:{modelAssetPath:MODELS[kind],delegate:dg},runningMode:mode,numPoses:np,
-    minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5});
+    minPoseDetectionConfidence:np>1?.3:.5,minPosePresenceConfidence:np>1?.3:.5,minTrackingConfidence:np>1?.3:.5});
   try{ return await PoseLandmarker.createFromOptions(fileset,opt('GPU')); }
   catch(e){ return PoseLandmarker.createFromOptions(fileset,opt('CPU')); }
 }
@@ -1495,17 +1496,42 @@ function descOf(lm,W,H){ // 사람 한 명의 위치·크기 요약
   return {cx:hip?(a.x+b.x)/2:(x0+x1)/2, cy:hip?(a.y+b.y)/2:(y0+y1)/2, S, box:{x0,y0,x1,y1}};
 }
 function nearCenter(L){ let k=-1,bd=1e9; (L||[]).forEach((l,i)=>{ const a=l[23],b=l[24], v=a&&b?Math.hypot((a.x+b.x)/2-.5,(a.y+b.y)/2-.5):9; if(v<bd){bd=v;k=i} }); return bd<.3?k:-1; }
-async function scanPeople(lm,t,snap){ // 한 장면에서 보이는 사람 모두 찾기
+function qualOf(l){ let s=0; [11,12,23,24,25,26,27,28].forEach(k=>s+=(l[k].visibility??1)); return s/8; }
+function mergePeople(a){ // 같은 사람이 여러 조각에서 중복으로 잡힌 것 합치기
+  const W=video.videoWidth,H=video.videoHeight, ar=b=>Math.max(0,b.x1-b.x0)*Math.max(0,b.y1-b.y0);
+  a=a.slice().sort((p,q)=>q.q-p.q||q.S-p.S); const keep=[];
+  a.forEach(p=>{
+    const dup=keep.some(k=>{
+      if(Math.hypot((p.cx-k.cx)*W,(p.cy-k.cy)*H)<.3*Math.max(p.S,k.S)) return true;
+      const x0=Math.max(p.box.x0,k.box.x0),x1=Math.min(p.box.x1,k.box.x1),y0=Math.max(p.box.y0,k.box.y0),y1=Math.min(p.box.y1,k.box.y1);
+      const inter=Math.max(0,x1-x0)*Math.max(0,y1-y0), m=Math.min(ar(p.box),ar(k.box));
+      return m>0&&inter/m>.65; });
+    if(!dup) keep.push(p); });
+  return keep;
+}
+async function scanPeople(lm,t,snap){ // 한 장면에서 보이는 사람 모두 찾기 (멀리 있는 사람은 조각조각 확대해서 찾기)
   const W=video.videoWidth,H=video.videoHeight;
   if(Math.abs(video.currentTime-t)>1e-3) await seekTo(video,t);
   snap.width=W; snap.height=H; snap.getContext('2d').drawImage(video,0,0,W,H);
-  const res=lm.detect(snap);
-  return (res.landmarks||[]).map(r=>{ const l=r.map(p=>({x:p.x,y:p.y,visibility:p.visibility??1})); return {lm:l,...descOf(l,W,H)}; }).filter(p=>p.S>H*0.05);
+  const all=[];
+  const add=(res,x0,y0,w,h)=>{ (res.landmarks||[]).forEach(r=>{ const l=r.map(p=>({x:(x0+p.x*w)/W,y:(y0+p.y*h)/H,visibility:p.visibility??1})); all.push({lm:l,...descOf(l,W,H),q:qualOf(l)}); }); };
+  add(lm.detect(snap),0,0,W,H);
+  if($('farOn')?$('farOn').checked:true){
+    const tc=document.createElement('canvas');
+    for(const [fr,st] of [[.6,.4],[.4,.3]]){
+      const tw=Math.round(W*fr), th=Math.round(H*fr);
+      for(let y=0;y<=1-fr+1e-6;y+=st) for(let x=0;x<=1-fr+1e-6;x+=st){
+        const sx=Math.round(x*W), sy=Math.round(y*H); tc.width=tw; tc.height=th;
+        tc.getContext('2d').drawImage(snap,sx,sy,tw,th,0,0,tw,th);
+        try{ add(lm.detect(tc),sx,sy,tw,th); }catch(e){}
+      } } }
+  return mergePeople(all).filter(p=>p.S>H*0.03);
 }
+function nearCenterAt(L,cx,cy,thr){ let k=-1,bd=1e9; (L||[]).forEach((l,i)=>{ const a=l[23],b=l[24], v=a&&b?Math.hypot((a.x+b.x)/2-cx,(a.y+b.y)/2-cy):9; if(v<bd){bd=v;k=i} }); return bd<thr?k:-1; }
 async function choosePeople(opt={}){ // null=한 명뿐(기존 방식) · false=취소 · 객체=고른 결과
   setAna('화면에 사람이 몇 명 있는지 확인하는 중…',0);
   const d=video.duration, times=[video.currentTime];
-  if(!opt.currentOnly) [.25,.5,.75].forEach(f=>times.push(Math.max(0,Math.min(d-.05,f*d))));
+  if(!opt.currentOnly) [.3,.7].forEach(f=>times.push(Math.max(0,Math.min(d-.05,f*d))));
   let best=null, lm=null;
   try{
     lm=await makeLM(qualKind(d),'IMAGE',MAXP);
@@ -1518,6 +1544,9 @@ async function choosePeople(opt={}){ // null=한 명뿐(기존 방식) · false=
     }
   }catch(e){ console.error(e); return null; }
   finally{ try{lm&&lm.close()}catch(e){} }
+  if(best&&best.ps.length===1&&($('farOn')?$('farOn').checked:true)&&best.ps[0].S<video.videoHeight*.45){ // 멀리 있는 한 명 → 확대 추적으로 자동 선택
+    best.ps[0].id=1; best.ps[0].color=PCOL[0]; return {ref:{t:best.t,list:best.ps},sel:[1],active:1};
+  }
   if(!best||best.ps.length<2) return null;
   best.ps.sort((a,b)=>a.cx-b.cx).forEach((p,i)=>{ p.id=i+1; p.color=PCOL[i%PCOL.length]; });
   const picked=await pickUI(best.snap,best.ps);
@@ -1587,6 +1616,15 @@ async function analyzeMulti(el,name,p0,p1,rng,P){ // 고른 사람들을 영상 
   setAna(`${name} 준비 중… (${QN[kind]} 모델 불러오는 중)`,p0);
   const lm=await makeLM(kind,'VIDEO',MAXP), lmImg=await makeLM(kind,'IMAGE',3).catch(()=>null);
   const n=Math.floor(d*AFPS)+1, i0=rng?Math.max(0,Math.floor(rng.a*AFPS)):0, i1=rng?Math.min(n-1,Math.ceil(rng.b*AFPS)):n-1;
+  const stepAssign=(T,list,i)=>{ // 장면 속 사람들을 가까운 순서로 기존 사람과 이어 붙이기
+    if(!list||!list.length){ T.forEach(t=>t.gap++); return; }
+    const pairs=[]; T.forEach((t,ti)=>list.forEach((dd,di)=>{ const D=Math.hypot((dd.cx-t.last.cx)*W,(dd.cy-t.last.cy)*H)/t.last.S; if(D<=.6+.12*Math.min(t.gap,12)) pairs.push([D,ti,di]); }));
+    pairs.sort((a,b)=>a[0]-b[0]); const ut=new Set(),ud=new Set();
+    pairs.forEach(([D,ti,di])=>{ if(ut.has(ti)||ud.has(di)) return; ut.add(ti); ud.add(di); const t=T[ti],dd=list[di]; if(t.idx) t.idx[i]=di; t.last={cx:dd.cx,cy:dd.cy,S:.7*t.last.S+.3*dd.S}; t.gap=0; });
+    T.forEach((t,ti)=>{ if(!ut.has(ti)) t.gap++; });
+  };
+  const farOn=$('farOn')?$('farOn').checked:true, zc=document.createElement('canvas'), zx=zc.getContext('2d');
+  const rI0=Math.round(P.ref.t*AFPS), Ton=P.ref.list.map(p=>({id:p.id,last:{cx:p.cx,cy:p.cy,S:p.S},gap:Math.abs(rI0-i0)>2?6:0}));
   const dets=new Array(n), offs=[]; let pg=null,pbs=[],o={x:0,y:0};
   try{
     for(let i=0;i<n;i++){
@@ -1603,6 +1641,22 @@ async function analyzeMulti(el,name,p0,p1,rng,P){ // 고른 사람들을 영상 
         list.push({cands,...descOf(c0,W,H)});
       });
       dets[i]=list;
+      if(farOn&&lmImg) P.sel.forEach(id=>{ // 멀리 있거나 놓친 사람: 마지막 위치 주변을 크게 확대해서 한 번 더 인식
+        const t=Ton.find(x=>x.id===id); if(!t) return;
+        const gate=.6+.12*Math.min(t.gap,12); let dn=-1,bd=1e9;
+        list.forEach((dd,di)=>{ const D=Math.hypot((dd.cx-t.last.cx)*W,(dd.cy-t.last.cy)*H)/t.last.S; if(D<=gate&&D<bd){bd=D;dn=di} });
+        if(dn>=0&&t.last.S>=H*.45) return;
+        const side=Math.min(Math.max(2.2*t.last.S,160),Math.min(W,H));
+        const x0=Math.max(0,Math.min(W-side,t.last.cx*W-side/2)), y0=Math.max(0,Math.min(H-side,t.last.cy*H-side/2));
+        try{
+          zc.width=zc.height=512; zx.drawImage(el,x0,y0,side,side,0,0,512,512);
+          const r2=lmImg.detect(zc), q2=nearCenterAt(r2.landmarks,(t.last.cx*W-x0)/side,(t.last.cy*H-y0)/side,.35); if(q2<0) return;
+          const rr=r2.landmarks[q2], rw2=r2.worldLandmarks&&r2.worldLandmarks[q2];
+          const c0=rr.map((p,k)=>({x:(x0+p.x*side)/W,y:(y0+p.y*side)/H,visibility:p.visibility??1,wx:rw2?rw2[k].x:undefined,wy:rw2?rw2[k].y:undefined,wz:rw2?rw2[k].z:undefined}));
+          if(dn>=0) list[dn].cands.unshift(c0); else list.push({cands:[c0],...descOf(c0,W,H)});
+        }catch(e){}
+      });
+      stepAssign(Ton,list,-1);
       const G=grabGray(el); // 배경이 움직인 만큼 = 카메라 흔들림 (모든 사람 영역 제외)
       if(G){ const bxs=list.map(x=>boxOf(x.cands[0],G.w,G.h));
         if(pg){ const sh=estShift(pg,G,[...pbs,...bxs]); o={x:o.x+sh.x*W/G.w,y:o.y+sh.y*H/G.h}; }
@@ -1617,13 +1671,7 @@ async function analyzeMulti(el,name,p0,p1,rng,P){ // 고른 사람들을 영상 
   const T=P.ref.list.map(p=>({id:p.id,ref:{cx:p.cx,cy:p.cy,S:p.S},idx:new Array(n).fill(-1)}));
   const run=(from,to,step)=>{
     T.forEach(t=>{ t.last={...t.ref}; t.gap=far?6:0; });
-    for(let i=from; step>0?i<=to:i>=to; i+=step){
-      const list=dets[i]; if(!list||!list.length){ T.forEach(t=>t.gap++); continue; }
-      const pairs=[]; T.forEach((t,ti)=>list.forEach((dd,di)=>{ const D=Math.hypot((dd.cx-t.last.cx)*W,(dd.cy-t.last.cy)*H)/t.last.S; if(D<=.6+.12*Math.min(t.gap,12)) pairs.push([D,ti,di]); }));
-      pairs.sort((a,b)=>a[0]-b[0]); const ut=new Set(),ud=new Set();
-      pairs.forEach(([D,ti,di])=>{ if(ut.has(ti)||ud.has(di)) return; ut.add(ti); ud.add(di); const t=T[ti],dd=list[di]; t.idx[i]=di; t.last={cx:dd.cx,cy:dd.cy,S:.7*t.last.S+.3*dd.S}; t.gap=0; });
-      T.forEach((t,ti)=>{ if(!ut.has(ti)) t.gap++; });
-    }
+    for(let i=from; step>0?i<=to:i>=to; i+=step) stepAssign(T,dets[i],i);
   };
   run(refIdx,i1,1); run(refIdx-1,i0,-1);
   const outs={};
